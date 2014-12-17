@@ -17,6 +17,7 @@ extern void yyerror(void *, const char *);
 
 %}
 
+%require "2.5"
 %defines "parser.h"
 %pure-parser
 %lex-param {void *scanner}
@@ -34,8 +35,8 @@ extern void yyerror(void *, const char *);
 %token<real> REAL
 %token<integer> INTEGER
 %token<token> INDENT DEDENT NEWLINE
-%token<token> T_LE T_GE T_EQ T_NE
-%token<token> T_SUB T_MUL T_DIV T_IDIV T_MOD T_POW
+%token<token> T_LT T_LE T_GT T_GE T_EQ T_NE
+%token<token> T_ADD T_SUB T_MUL T_DIV T_IDIV T_MOD T_POW
 %token<token> T_LSHIFT T_RSHIFT T_BITAND T_BITOR T_BITXOR T_BITNEG T_RETURNS
 %token<token> LET FALSE TRUE TUPLE RECORD UNION OR AND NOT IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
 
@@ -52,7 +53,7 @@ extern void yyerror(void *, const char *);
 %right T_POW
 
 %type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt break_stmt continue_stmt return_stmt func_stmt while_stmt for_stmt if_stmt elif_stmt wexpr_list_ne wexpr_list_wf expr_list expr_list_ne expr_list_wf dict_expr array_expr call_expr subs_expr wexpr expr ident_list ident_list_wf pair_expr pair_list pair_list_wf sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr
+%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt break_stmt continue_stmt return_stmt func_stmt while_stmt for_stmt if_stmt elif_stmt wexpr_list_ne wexpr_list_wf expr_list expr_list_ne expr_list_wf dict_expr array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr
 
 %start program
 
@@ -62,8 +63,8 @@ extern void yyerror(void *, const char *);
 
 
 %%
-cmp_op: '<'                                              { $$ = $1; }
-      | '>'                                              { $$ = $1; }
+cmp_op: '<'                                              { $$ = T_LT; }
+      | '>'                                              { $$ = T_GT; }
       | T_LE                                             { $$ = $1; }
       | T_GE                                             { $$ = $1; }
       | T_EQ                                             { $$ = $1; }
@@ -72,12 +73,12 @@ cmp_op: '<'                                              { $$ = $1; }
 bitshift_op: T_LSHIFT                                    { $$ = $1; }
            | T_RSHIFT                                    { $$ = $1; }
            ;
-arith_op: '+'                                            { $$ = $1; }
-        | '-'                                            { $$ = $1; }
+arith_op: '+'                                            { $$ = T_ADD; }
+        | '-'                                            { $$ = T_SUB; }
         ;
-term_op: '*'                                             { $$ = $1; }
-       | '/'                                             { $$ = $1; }
-       | '%'                                             { $$ = $1; }
+term_op: '*'                                             { $$ = T_MUL; }
+       | '/'                                             { $$ = T_DIV; }
+       | '%'                                             { $$ = T_MOD; }
        | T_IDIV                                          { $$ = $1; }
        ;
 
@@ -117,9 +118,6 @@ return_stmt: RETURN                                      { $$ = new ast::Return(
            ;
 assn_stmt: wexpr '=' expr                                { $$ = new ast::Assign($1, $3); }
          | wexpr '=' assn_stmt                           { $$ = new ast::Assign($1, $3); }
-         /* FIX: Add support for assigning lists to lists, and for
-          * unpacking (unpacking requires the UNPACK_SEQUENCE [2]
-          * opcode. */
          ;
 decl_stmt: LET IDENTIFIER '=' expr                       { $$ = new ast::Declare($1, $3, NULL); }
          | LET IDENTIFIER ':' IDENTIFIER '=' expr        { $$ = new ast::Declare($1, $3, $5); }
@@ -133,7 +131,6 @@ elif_stmt: /* empty */                                   { $$ = NULL; }
 while_stmt: WHILE expr ':' suite                         { $$ = new ast::While($2, $4); }
           ;
 for_stmt: FOR IDENTIFIER IN expr ':' suite               { $$ = new ast::For(new ast::Variable($2), $4, $6); }
-        /*| FOR IDENTIFIER IN expr_list_ne ':' suite       { $$ = new ast::For(new ast::Variable($2), new ast::List($4), $6); }*/
         ;
 wexpr_list_ne: wexpr_list_wf                             { $$ = $1; }
              | wexpr_list_wf ','                         { $$ = $1; }
@@ -218,8 +215,8 @@ term_expr: power_expr                                    { $$ = $1; }
 power_expr: sexpr                                        { $$ = $1; }
           | power_expr T_POW sexpr                       { $$ = new ast::Binary($2, $1, $3); }
           ;
-sexpr: '+' sexpr %prec T_BITNEG                          { $$ = new ast::Unary($1, $2); }
-     | '-' sexpr %prec T_BITNEG                          { $$ = new ast::Unary($1, $2); }
+sexpr: '+' sexpr %prec T_BITNEG                          { $$ = new ast::Unary(T_ADD, $2); }
+     | '-' sexpr %prec T_BITNEG                          { $$ = new ast::Unary(T_SUB, $2); }
      | T_BITNEG sexpr                                    { $$ = new ast::Unary($1, $2); }
      | '(' expr ')'                                      { $$ = $2; }
      | array_expr                                        { $$ = $1; }

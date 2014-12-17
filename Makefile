@@ -21,11 +21,7 @@ lexer.cc lexer.h: mamba.l parser.h
 parser.cc parser.h: mamba.y
 	$(YACC) -d -o parser.cc mypy.y
 
-.PHONY: clean info
-
-info:
-	bison --version |  awk 'NR<1 match($0,/([0-9]+\.?)+/) {print Bison substr($0,RSTART,RLENGTH)}'
-	flex --version |  awk 'NR<1 match($0,/([0-9]+\.?)+/) {print Flex substr($0,RSTART,RLENGTH)}'
+.PHONY: clean
 
 clean:
 	rm -f $(EXEC) $(OBJS) $(DEPS)
