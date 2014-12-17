@@ -97,49 +97,48 @@ string      L?\"(\\.|[^\\"])*\"
 ","             { return TK(','); }
 ";"             { return TK(';'); }
 "="             { return TK('='); }
+"<"             { return TK('<'); }
+">"             { return TK('>'); }
+"|"             { return TK('|'); }
+"+"             { return TK('+'); }
+"-"             { return TK('-'); }
+"*"             { return TK('*'); }
+"/"             { return TK('/'); }
+"%"             { return TK('%'); }
 
-"->"            { return TK(RETURNS); }
+"->"            { return TK(T_RETURNS); }
 
-"<"             { return TK(CMP_LT); }
-"<="            { return TK(CMP_LE); }
-">"             { return TK(CMP_GT); }
-">="            { return TK(CMP_GE); }
-"=="            { return TK(CMP_EQ); }
-"!="            { return TK(CMP_NE); }
+"<="            { return TK(T_LE); }
+">="            { return TK(T_GE); }
+"=="            { return TK(T_EQ); }
+"!="            { return TK(T_NE); }
 
-"+"             { return TK(OP_ADD); }
-"-"             { return TK(OP_SUB); }
-"*"             { return TK(OP_MUL); }
-"/"             { return TK(OP_DIV); }
-"//"            { return TK(OP_IDIV); }
-"%"             { return TK(OP_MOD); }
-"**"            { return TK(OP_POW); }
- /* ".."        { return TK(OP_RANGE); } */
+"//"            { return TK(T_IDIV); }
+"**"            { return TK(T_POW); }
+ /* ".."        { return TK(T_RANGE); } */
 
-"<<"            { return TK(BIT_LSHIFT); }
-">>"            { return TK(BIT_RSHIFT); }
-"&"             { return TK(BIT_AND); }
-"|"             { return TK(BIT_OR); }
-"^"             { return TK(BIT_XOR); }
-"~"             { return TK(BIT_NEG); }
+"<<"            { return TK(T_LSHIFT); }
+">>"            { return TK(T_RSHIFT); }
+"&"             { return TK(T_BITAND); }
+"^"             { return TK(T_BITXOR); }
+"~"             { return TK(T_BITNEG); }
 
+"let"           { return TK(LET); }
 "false"         { return TK(FALSE); }
 "true"          { return TK(TRUE); }
+"record"        { return TK(RECORD); }
+"tuple"         { return TK(TUPLE); }
+"union"         { return TK(UNION); }
 "or"            { return TK(OR); }
 "and"           { return TK(AND); }
+"not"           { return TK(NOT); }
 "if"            { return TK(IF); }
 "else"          { return TK(ELSE); }
 "elif"          { return TK(ELIF); }
 "while"         { return TK(WHILE); }
+"for"           { return TK(FOR); }
 "break"         { return TK(BREAK); }
 "continue"      { return TK(CONTINUE); }
-"for"           { return TK(FOR); }
-"not"[ \t]+"in" { return TK(NOTIN); }
-"is"[ \t]+"not" { return TK(ISNOT); }
-"not"           { return TK(NOT); }
-"in"            { return TK(IN); }
-"is"            { return TK(IS); }
-"let"           { return TK(LET); }
 "return"        { return TK(RETURN); }
 
 {integer}       {
