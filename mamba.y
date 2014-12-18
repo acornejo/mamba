@@ -6,8 +6,6 @@
 extern ast::Node *program;
 extern void yyerror(void *, const char *);
 
-// NOTE: This requires bison 2.6, on bison 2.3 the %defines directive
-// will fail
 // for better error reporting
 // %define parse.lac full 
 // for error reporting
@@ -53,7 +51,7 @@ extern void yyerror(void *, const char *);
 %right T_POW
 
 %type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt break_stmt continue_stmt return_stmt func_stmt while_stmt for_stmt if_stmt elif_stmt wexpr_list_ne wexpr_list_wf expr_list expr_list_ne expr_list_wf dict_expr array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr
+%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt break_stmt continue_stmt return_stmt func_stmt while_stmt for_stmt if_stmt elif_stmt wexpr_list_ne wexpr_list_wf expr_list expr_list_ne expr_list_wf array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_def tuple_def union_def type_decl_list type_decl_list_wf type_decl type_decl_suite
 
 %start program
 
@@ -156,21 +154,28 @@ type_decl_list: /* empty */                              { $$ = new ast::TypeDec
 type_decl_list_wf: type_decl                             { $$ = new ast::TypeDeclList(); $$->appendChild($1); }
                  | type_decl_list_wf ',' type_decl       { $$ = $1; $1->appendChild($3); }
                  ;
-type_decl: IDENTIFIER ':' IDENTIFIER                     { $$ = new ast::TypeDecl($1, $3); }
+type_decl: IDENTIFIER IDENTIFIER                     { $$ = new ast::TypeDecl($1, $2); }
          ;
 func_expr: '|' type_decl_list '|' T_RETURNS type_decl ':' suite
          { $$ = new ast::FunctionExpr($2, $5, $7); }
          | '|' type_decl_list '|' ':' suite
          { $$ = new ast::FunctionExpr($2, NULL, $5); }
          ;
-type_decl_suite: NEWLINE INDENT type_decl_list_wf DEDENT { $$ = $3; }
-     | type_decl_list_wf                                 { $$ = $1; }
-     ;
+type_decl_block: type_decl NEWLINE                       { $$ = new ast::TypeDeclList(); $$->appendChild($1); }
+               | type_decl_block type_decl NEWLINE       { $$ = $1; $1->appendChild($3); }
+               ;
+type_decl_suite: NEWLINE INDENT type_decl_block DEDENT   { $$ = $3; }
+               ;
+type_block: IDENTIFIER NEWLINE                           { $$ = new ast::TypeList(); $$->appendChild($1); }
+          | type_block IDENTIFIER                        { $$ = $1; $1->appendChild($2); }
+          ;
+type_suite: NEWLINE INDENT type_block DEDENT             { $$ = $3; }
+          ;
 record_def: RECORD IDENTIFIER ':' type_decl_suite        { $$ = new ast::RecordDef($2, $4); }
          ;
-tuple_def: TUPLE IDENTIFIER ':' identifier_suite         { $$ = new ast::TupleDef($2, $4); }
+tuple_def: TUPLE IDENTIFIER ':' type_suite               { $$ = new ast::TupleDef($2, $4); }
          ;
-union_def: UNION IDENTIFIER ':' enum_suite               { $$ = new ast::UnionDef($2, $4) }
+union_def: UNION IDENTIFIER ':' enum_suite               { $$ = new ast::UnionDef($2, $4); }
          ;
 array_expr: '[' expr_list ']'                            { $$ = new ast::Array($2); }
          ;
