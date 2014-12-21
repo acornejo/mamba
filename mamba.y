@@ -51,7 +51,7 @@ extern void yyerror(void *, const char *);
 %right T_POW
 
 %type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt decl_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr fexpr_list expr_list array_expr call_expr subs_expr fexpr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_block record_suite type_stmt record_def tuple_block tuple_suite tuple_def union_decl union_block union_suite union_def type_spec type_decl type_decl_list 
+%type<node> suite stmt_block simple_stmt small_stmt_list compound_stmt small_stmt assn_stmt decl_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr fexpr_list expr_list array_expr call_expr subs_expr fexpr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_block record_suite type_stmt record_def tuple_block tuple_suite tuple_def union_decl union_block union_suite union_def type_spec_np type_spec type_decl type_decl_list 
 
 %start program
 
@@ -131,11 +131,13 @@ assn_stmt: wexpr '=' expr                                { $$ = new ast::Assign(
          | wexpr '=' assn_stmt                           { $$ = new ast::Assign($1, $3); }
          ;
 
-type_spec: IDENTIFIER                                    { $$ = new ast::TypeSpec($1); }
-         | '*' type_spec                                 { ((ast::TypeSpec*)$2)->setPointer(); }
-         | '&' type_spec                                 { ((ast::TypeSpec*)$2)->setReference(); }
-         | type_spec '[' ']'                             { ((ast::TypeSpec*)$1)->pushArray(-1); }
-         | type_spec '[' INTEGER ']'                     { ((ast::TypeSpec*)$1)->pushArray($3); }
+type_spec_np: IDENTIFIER                                 { $$ = new ast::TypeSpec($1); }
+            | type_spec_np '[' ']'                       { ((ast::TypeSpec*)$1)->pushArray(-1); }
+            | type_spec_np '[' INTEGER ']'               { ((ast::TypeSpec*)$1)->pushArray($3); }
+            ;
+
+type_spec: type_spec_np                                  { $$ = $1; }
+         | '*' type_spec_np                              { ((ast::TypeSpec*)$2)->setPointer(); }
          ;
 
 decl_stmt: LET IDENTIFIER '=' fexpr                      { $$ = new ast::Declare($2, $4, NULL); }
@@ -218,7 +220,7 @@ expr_list: expr                                          { $$ = new ast::ExprLis
          ;
 
 array_expr: '[' expr_list ']'                            { $$ = new ast::Array($2); }
-         ;
+          ;
 
 fexpr: expr                                              { $$ = $1; }
      | func_expr                                         { $$ = $1; }
