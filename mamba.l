@@ -113,7 +113,6 @@ string      L?\"(\\.|[^\\"])*\"
 "=="            { return TK(T_EQ); }
 "!="            { return TK(T_NE); }
 
-"//"            { return TK(T_IDIV); }
 "**"            { return TK(T_POW); }
  /* ".."        { return TK(T_RANGE); } */
 
@@ -124,8 +123,8 @@ string      L?\"(\\.|[^\\"])*\"
 "~"             { return TK(T_BITNEG); }
 
 "let"           { return TK(LET); }
-"false"         { return TK(FALSE); }
-"true"          { return TK(TRUE); }
+"False"         { return TK(FALSE); }
+"True"          { return TK(TRUE); }
 "record"        { return TK(RECORD); }
 "tuple"         { return TK(TUPLE); }
 "union"         { return TK(UNION); }
