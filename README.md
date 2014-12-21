@@ -1,10 +1,10 @@
 # Mamba's Philosophy
 
-In general, Mamba follows the DRY principle for software engineering.
+Mamba follows the DRY principle for software engineering.
 
-Mamba is a systems programming language, what does that mean?. It means
-that it should be possible to write an operating system entirely in
-Mamba (with a minimal amount of assembler glue).
+Mamba is a systems programming language. This means it is possible to
+write an operating system entirely in Mamba (with a minimal amount of
+assembler glue).
 It also means that Mamba does not have a runtime, and programmers can
 decide if their variables are allocated in the stack or heap. Mamba
 should be as efficient as C, and yet provides abstractions to simplify
@@ -27,9 +27,10 @@ that if two programmers implement the same algorithm using Mamba, their
 implementations should be very similar.
 
 In the same spirit as above Mamba enforces strict naming conventions for
-types, functions and variables. For that same reason, as python,
-whitespace has a meaning in Mamba, and as such there are not multiple
-"indentation" styles, but a single canonical indentation style.
+types, functions and variables. For that same reason, whitespace has a
+meaning in Mamba (as in python), and thus there are not multiple
+"indentation" styles, but a single possible way to format your Mamba
+code.
 
 # Naming rules
 
@@ -39,19 +40,28 @@ whitespace has a meaning in Mamba, and as such there are not multiple
 underscores (i.e. camelCase).
 - Variables can't have capitals but can have underscores (i.e.
 snake_case).
+- Constants are all capitals (i.e. CONSTANT)
 
 # POD Types
-## Machine dependent
-Bool
-Float
-Int
-Unt
 ## Machine independent
+Bool
 Int{8,16,32,64}
 Unt{8,16,32,64}
 Float{32,64}
 Char (unicode)
+Byte
 String
+
+## Machine dependent
+Float
+Int
+Unt
+
+# Type aliases
+alias Unt8 as Byte
+alias Int32 as Int
+alias Unt32 as Unt
+alias Float32 as Float
 
 # Variable declaration
 Variables must always be initialized when declared
@@ -111,24 +121,23 @@ tuple type must be initialized when declared.
 
 # Implementing interfaces
 
-    impl Defautl<Point> for Point:
+    impl Default<Point> for Point:
         default = || -> Point:
             return Point{x = 0.0, y = 0.0}
 
     let p = Point.default()
 
-This is as good a place as any to mention that, unlike C++, Mamba does
-not provide to the concept of type "constructors". However, as shown the
-same concept can be implemented through interfaces. The above example
-implements the "default constructor" for the type Point.
+This is as good a place as any to mention that Mamba does not provide
+the concept of type "constructors", since the same concept can be easily
+implemented using interfaces. The above example implements the "default
+constructor" for the type Point.
 
-Remember we said Mamba doesn't have constructors? Well, it also doesn't
-have the concept of inheritance. However, most of the object oriented
-programming patterns (including modularization and polymorphism) can be
-achieved through the use of interfaces. Below is an example of how to
-achieve the equivalent of having a class Rect and class Circle both
-inherit from a class Shape, and then use polymorphism to treat them both
-as the base class Shape.
+Mamba also doesn't have the concept of inheritance. However, most of the
+object oriented programming patterns (including modularization and
+polymorphism) can be achieved through the use of interfaces.
+Below is a simple example of how to achieve the equivalent of having a
+class Rect and class Circle both inherit from a class Shape, and then
+use polymorphism to treat them both as the base class Shape.
 
     record Rect:
         Float width
@@ -165,17 +174,17 @@ as the base class Shape.
     let i = 3
     v[i] = 4.0 # won't compile
 
-    let i = turningHaltingMachine()
+    let i = turingHaltingProblem()
     v[i] = 4.0 # won't compile
 
-On records you can always access existing members, and cannot add new
-members (i.e. they are not a dictionary). For that purpose you should
-use a Map instead.
+On records you can always access existing members but you cannot access
+or create new members. In other words, records should not be confused
+with dictionaries or maps, for that purpose you can use a Map instead.
     
 For tuples, you must always use an index whose values is known at
 compile time. If you want to index using values which are computed at
-runtime, then use arrays instead. By default there is bounds checking
-performed on arrays at runtime, although this can be disabled.
+runtime, then you should use arrays instead. By default there is bounds
+checking performed on arrays at runtime, although this can be disabled.
 
 However, in almost all use cases its possible to use arrays through
 iterators, which avoid bounds checking without sacrificing safety.
@@ -189,8 +198,8 @@ iterators, which avoid bounds checking without sacrificing safety.
 Unions are particularly useful to send and receive parameters which may
 or may not have a value. For example, suppose you have a type that
 implements a linked list, and you want to implement an interface to find
-the largest value of the liked list. What will you return if a user
-attempts to find the largest element of a linked list with no values?
+the largest value of the liked list. What should you return if a user
+attempts to find the largest element of an empty linked list?
 
     let list = [1,5,10,3,7,15,8,4]
     let val:Maybe<int> = find_max(list)
@@ -201,10 +210,9 @@ attempts to find the largest element of a linked list with no values?
         Some(x):
             print!("largest value is #{x}")
 
-In general, the Maybe union type can be used in all sorts of cases where
-you would usually use a placeholder value. For instance, here is how the
-code of a function that finds the maximum element could look like if
-using a list.
+In general, the Maybe union type can be used in cases where you would
+usually use a placeholder value. For instance, here is how the code of a
+function that finds the maximum element could look like if using a list.
 
     let find_max = |Int[] list| -> Maybe<Int>
         let max = None
@@ -230,17 +238,22 @@ illustrate the point. Instead you should write:
         return Some(max)
 
 For small lists there will be no difference, but for larger lists you
-will save one branch instruction for every item in the array, since we
-replaced the match inside the for loop with a single if outside the
-loop.
+will save one branch for every item in the array, since we replaced the
+match inside the for loop with a single if outside the loop.
 
 # unpacking tuples
     let Pair(z, w) = pair
     let (z, w) = pair
 
 # Allocating in heap
-    let *Int32 x = 3
-    let *Float32 y = 4.0
+    let *Int32 x = *3
+    let *Float32 y = *4.0
+    let *Point p = *Point{x=3.0, y=2.0}
+
+# type inference works here too
+    let x = *3
+    let y = *4.0
+    let p = *Point{x=3.0, y=2.0}
 
 # Generic function definitions
     let max = <T is Orderable>|T x, T y| -> T:
@@ -282,11 +295,3 @@ loop.
 
     impl Iterable<(T,V)> for Map:
         iter = fn|self| -> MapIterator<T,V> return MapIterator<T,V>(self)
-
-    let y = 5
-    if not x:
-        y = 3
-
-    collection.apply(|Int x| -> Int:
-        return x+1
-    )
