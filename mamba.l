@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <stdlib.h>
+#include "ast.h"
+#include "parser.h"
 
 std::vector<char> paren;
 std::vector<int> indent;
@@ -34,8 +36,9 @@ if (paren.empty() || paren.back() != c) {\
 
 %}
 
-%option bison-bridge
+%option outfile="lexer.cc" header-file="lexer.h"
 %option reentrant
+%option bison-bridge
 %option noyywrap
 
 digit		[0-9]
@@ -114,7 +117,6 @@ string      L?\"(\\.|[^\\"])*\"
 "!="            { return TK(T_NE); }
 
 "**"            { return TK(T_POW); }
- /* ".."        { return TK(T_RANGE); } */
 
 "<<"            { return TK(T_LSHIFT); }
 ">>"            { return TK(T_RSHIFT); }

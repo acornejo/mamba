@@ -1,6 +1,5 @@
 %{
 #include <string>
-#include "types.h"
 #include "ast.h"
 
 extern ast::Node *program;
@@ -16,6 +15,7 @@ extern void yyerror(void *, const char *);
 %}
 
 %require "2.5"
+%output "parser.cc"
 %defines "parser.h"
 %pure-parser
 %lex-param {void *scanner}
