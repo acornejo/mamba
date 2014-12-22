@@ -1,29 +1,27 @@
 # CC CXX CCFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDLIBS $< (input) $@ (outout) $^ (dependencies)
 EXEC := mamba
 SRCS := $(wildcard *.cc)
-OBJS := ${SRCS:.cc=.o}
+OBJS := ${SRCS:.cc=.o} lexer.o parser.o
 DEPS := ${SRCS:.cc=.d}
 
 CC := g++ -g
-CXXFLAGS :=`pkg-config --cflags clutter-1.0`
-LDLIBS :=`pkg-config --libs clutter-1.0`
 OUTPUT_OPTION=-g -MMD -MP -Wall -o $@
 LEX := flex
 YACC := bison
 
-all: $(EXEC) info
+all: $(EXEC)
 
 $(EXEC): $(OBJS)
 
-lexer.cc lexer.h: mamba.l parser.h
-	$(LEX) -o lexer.cc --header-file=lexer.h mypy.l
+lexer.cc lexer.h: mamba.l parser.cc parser.h
+	$(LEX) mamba.l
 
 parser.cc parser.h: mamba.y
-	$(YACC) -d -o parser.cc mypy.y
+	$(YACC) mamba.y
 
 .PHONY: clean
 
 clean:
-	rm -f $(EXEC) $(OBJS) $(DEPS)
+	rm -f $(EXEC) $(OBJS) $(DEPS) lexer.cc lexer.h parser.cc parser.h
 
 -include $(DEPS)
