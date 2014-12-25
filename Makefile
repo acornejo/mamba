@@ -1,5 +1,5 @@
 # CC CXX CCFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDLIBS $< (input) $@ (outout) $^ (dependencies)
-EXEC := mamba
+EXEC := main
 SRCS := $(wildcard *.cc)
 OBJS := ${SRCS:.cc=.o} lexer.o parser.o
 DEPS := ${SRCS:.cc=.d}
@@ -9,12 +9,16 @@ OUTPUT_OPTION=-g -MMD -MP -Wall -o $@
 LEX := flex
 YACC := bison
 
-all: $(EXEC)
-
 $(EXEC): $(OBJS)
 
+main.o: parser.h lexer.h
+
+parser.o: parser.cc lexer.h
+
+lexer.o: lexer.cc parser.h
+
 lexer.cc lexer.h: mamba.l parser.cc parser.h
-	$(LEX) mamba.l
+	$(LEX) -d mamba.l
 
 parser.cc parser.h: mamba.y
 	$(YACC) mamba.y

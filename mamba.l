@@ -2,44 +2,31 @@
 #include <vector>
 #include <string>
 #include <stdlib.h>
-#include "ast.h"
-#include "parser.h"
+#include "mamba_context.h"
 
 std::vector<char> paren;
 std::vector<int> indent;
 int pending_indents = 0, pending_dedents = 0;
 
-char stre[512];
-
-extern void yyerror(void *, const char *);
-
 #define paren_add(c) paren.push_back(c)
 #define paren_del(c)\
 if (paren.empty() || paren.back() != c) {\
-    sprintf(stre, "SyntaxError: expected '%c' but found '%c'", c, paren.back());\
-    yyerror(NULL, stre);\
+    char stre[512];\
+    sprintf(stre, "syntax error, unexpected '%c', expected '%c'", paren.back(), c);\
+    yyerror(yylloc, yyextra, stre);\
 } else\
     paren.pop_back()
 #define TK(t) (yylval->token = t)
-/*int TK(int t) {*/
-/*    yylval.token = t;*/
-/*    if (t == INDENT)*/
-/*        printf("parsed token '%s'\n", "INDENT");*/
-/*    else if (t == DEDENT)*/
-/*        printf("parsed token '%s'\n", "DEDENT");*/
-/*    else if (t == NEWLINE)*/
-/*        printf("parsed token '%s'\n", "NEWLINE");*/
-/*    else*/
-/*        printf("parsed token '%s'\n", yytext);*/
-/*    return t;*/
-/*}*/
 
+#define YY_USER_ACTION yylloc->first_line = yylineno;
 %}
 
 %option outfile="lexer.cc" header-file="lexer.h"
 %option reentrant
 %option bison-bridge
+%option bison-locations
 %option noyywrap
+%option yylineno
 
 digit		[0-9]
 integer     {digit}+
