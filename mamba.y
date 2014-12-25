@@ -2,6 +2,9 @@
 #include <string>
 #include "mamba_context.h"
 #include "lexer.h"
+
+// hack to send scanner to yylex
+#define context_scanner context->getScanner()
 %}
 
 %require "2.5"
@@ -53,11 +56,6 @@
 
 %start program
 
-%{ 
-// hack to send scanner to yylex
-#define context_scanner context->getScanner()
-%}
-
 %%
 program: stmt_block                                      { context->setOutput($1); }
        ;
@@ -103,12 +101,12 @@ assn_stmt: wexpr '=' expr                                { $$ = new ast::Assign(
          ;
 
 type_spec_np: IDENTIFIER                                 { $$ = new ast::TypeSpec($1); }
-            | type_spec_np '[' ']'                       { ((ast::TypeSpec*)$1)->pushArray(-1); }
-            | type_spec_np '[' INTEGER ']'               { ((ast::TypeSpec*)$1)->pushArray($3); }
+            | type_spec_np '[' ']'                       { $$ = $1; ((ast::TypeSpec*)$1)->pushArray(-1); }
+            | type_spec_np '[' INTEGER ']'               { $$ = $1; ((ast::TypeSpec*)$1)->pushArray($3); }
             ;
 
 type_spec: type_spec_np                                  { $$ = $1; }
-         | '*' type_spec_np                              { ((ast::TypeSpec*)$2)->pointer = true; }
+         | '*' type_spec_np                              { $$ = $2; ((ast::TypeSpec*)$2)->pointer = true; }
          ;
 
 decl_stmt: LET IDENTIFIER '=' fexpr                      { $$ = new ast::Declaration($2, $4, NULL); }

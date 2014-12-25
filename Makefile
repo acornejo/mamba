@@ -13,11 +13,7 @@ $(EXEC): $(OBJS)
 
 main.o: parser.h lexer.h
 
-parser.o: parser.cc lexer.h
-
-lexer.o: lexer.cc parser.h
-
-lexer.cc lexer.h: mamba.l parser.cc parser.h
+lexer.cc lexer.h: mamba.l parser.h
 	$(LEX) -d mamba.l
 
 parser.cc parser.h: mamba.y
