@@ -72,7 +72,7 @@ stmt_block: compound_stmt                                { $$ = new ast::StmtLis
 simple_stmt: small_stmt NEWLINE                          { $$ = $1; }
            ;
 
-small_stmt: expr                                         { $$ = new ast::ExprStatement($1); }
+small_stmt: expr                                         { $$ = new ast::Expr($1); }
           | decl_stmt                                    { $$ = $1; }
           | assn_stmt                                    { $$ = $1; }
           | break_stmt                                   { $$ = $1; }
@@ -140,9 +140,9 @@ type_decl_list: %empty                                   { $$ = new ast::TypeDec
               ;
 
 func_expr: '|' type_decl_list '|' T_RETURNS type_spec ':' suite
-         { $$ = new ast::FunctionExpr($2, $7, $5); }
+         { $$ = new ast::Function($2, $7, $5); }
          | '|' type_decl_list '|' ':' suite
-         { $$ = new ast::FunctionExpr($2, $5, NULL); }
+         { $$ = new ast::Function($2, $5, NULL); }
          ;
 
 record_block: type_decl NEWLINE                          { $$ = new ast::TypeDeclList(); $$->appendChild($1); }

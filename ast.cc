@@ -2,6 +2,10 @@
 
 namespace ast {
 
+Node::Node(): parentNode(NULL), nextSibling(NULL), firstChild(NULL), lastChild(NULL), num_children(0) {
+/* empty */
+}
+
 Node::~Node() {
     Node *n = firstChild;
     while (n != NULL) {
@@ -50,5 +54,40 @@ void Node::extend(Node *n) {
     n->num_children = 0;
     delete n;
 }
+
+void True::accept(Visitor *v) { v->visit(this); }
+void False::accept(Visitor *v) { v->visit(this); }
+void Integer::accept(Visitor *v) { v->visit(this); }
+void Real::accept(Visitor *v) { v->visit(this); }
+void String::accept(Visitor *v) { v->visit(this); }
+void Variable::accept(Visitor *v) { v->visit(this); }
+void Binary::accept(Visitor *v) { v->visit(this); }
+void Unary::accept(Visitor *v) { v->visit(this); }
+void And::accept(Visitor *v) { v->visit(this); }
+void Or::accept(Visitor *v) { v->visit(this); }
+void Array::accept(Visitor *v) { v->visit(this); }
+void Call::accept(Visitor *v) { v->visit(this); }
+void Subscript::accept(Visitor *v) { v->visit(this); }
+void Expr::accept(Visitor *v) { v->visit(this); }
+void Assign::accept(Visitor *v) { v->visit(this); }
+void IfElse::accept(Visitor *v) { v->visit(this); }
+void For::accept(Visitor *v) { v->visit(this); }
+void While::accept(Visitor *v) { v->visit(this); }
+void Break::accept(Visitor *v) { v->visit(this); }
+void Continue::accept(Visitor *v) { v->visit(this); }
+void Return::accept(Visitor *v) { v->visit(this); }
+void Function::accept(Visitor *v) { v->visit(this); }
+void TypeSpec::accept(Visitor *v) { v->visit(this); }
+void TypeDecl::accept(Visitor *v) { v->visit(this); }
+void Declaration::accept(Visitor *v) { v->visit(this); }
+void TypeDeclList::accept(Visitor *v) { v->visit(this); }
+void TupleTypes::accept(Visitor *v) { v->visit(this); }
+void UnionItem::accept(Visitor *v) { v->visit(this); }
+void UnionList::accept(Visitor *v) { v->visit(this); }
+void RecordDef::accept(Visitor *v) { v->visit(this); }
+void TupleDef::accept(Visitor *v) { v->visit(this); }
+void UnionDef::accept(Visitor *v) { v->visit(this); }
+void ExprList::accept(Visitor *v) { v->visit(this); }
+void StmtList::accept(Visitor *v) { v->visit(this); }
 
 }

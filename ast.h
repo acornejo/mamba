@@ -11,6 +11,7 @@ namespace ast {
     typedef double real_t;
 
     class Node;
+    class Visitor;
     typedef std::vector<Node *> NodeList;
 
     class Node {
@@ -23,9 +24,9 @@ namespace ast {
             NodeList childNodes;
             std::vector<std::string *> slist;
 
-            Node(): parentNode(NULL), nextSibling(NULL), firstChild(NULL), lastChild(NULL), num_children(0) { }
-
+            Node();
             virtual ~Node();
+            virtual void accept(Visitor *v) = 0;
             void appendChild(Node *);
             void addString(std::string *);
             void extend(Node *);
@@ -34,11 +35,13 @@ namespace ast {
     class True: public Node {
         public:
             True(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class False: public Node {
         public:
             False(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class Const: public Node {
@@ -51,12 +54,14 @@ namespace ast {
         public:
             integer_t val;
             Integer(integer_t _val): Const(), val(_val) { }
+            virtual void accept(Visitor *v);
     };
 
     class Real: public Const {
         public:
             real_t val;
             Real(real_t _val): Const(), val(_val) { }
+            virtual void accept(Visitor *v);
     };
 
 
@@ -66,6 +71,7 @@ namespace ast {
             String(std::string *_val): Const(), val(_val) {
                 addString(val);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Variable: public Const {
@@ -75,6 +81,7 @@ namespace ast {
             Variable(std::string *_val): Const(), write(false), val(_val) {
                 addString(val);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Binary: public Node {
@@ -85,6 +92,7 @@ namespace ast {
                 appendChild(left);
                 appendChild(right);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Unary: public Node {
@@ -94,6 +102,7 @@ namespace ast {
             Unary(int _type, Node *_down): Node(), type(_type), down(_down) {
                 appendChild(down);
             }
+            virtual void accept(Visitor *v);
     };
 
     class And: public Node {
@@ -103,6 +112,7 @@ namespace ast {
                 appendChild(left);
                 appendChild(right);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Or: public Node {
@@ -112,11 +122,20 @@ namespace ast {
                 appendChild(left);
                 appendChild(right);
             }
+            virtual void accept(Visitor *v);
     };
 
     class ExprList: public Node {
         public:
             ExprList(): Node() { }
+            virtual void accept(Visitor *v);
+    };
+
+
+    class StmtList: public Node {
+        public:
+            StmtList(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class Array: public Node {
@@ -125,6 +144,7 @@ namespace ast {
             Array(Node *_elems): Node(), elems(_elems) {
                 appendChild(elems);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Call: public Node {
@@ -134,6 +154,7 @@ namespace ast {
                 appendChild(parent);
                 appendChild(params);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Subscript: public Node {
@@ -143,20 +164,16 @@ namespace ast {
                 appendChild(var);
                 appendChild(idx);
             }
+            virtual void accept(Visitor *v);
     };
 
-    class StmtList: public Node {
-        public:
-            StmtList(): Node() { }
-    };
-
-
-    class ExprStatement: public Node {
+    class Expr: public Node {
         public:
             Node *e;
-            ExprStatement(Node *_e): Node(), e(_e) {
+            Expr(Node *_e): Node(), e(_e) {
                 appendChild(e);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Assign: public Node {
@@ -173,6 +190,7 @@ namespace ast {
             }
 
             void chain() { if (Assign *a=dynamic_cast<Assign*>(rval)) a->chain(); else dups++; }
+            virtual void accept(Visitor *v);
     };
 
     class IfElse: public Node {
@@ -184,6 +202,7 @@ namespace ast {
                 if (ifelse != NULL)
                     appendChild(ifelse);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Loop: public Node {
@@ -202,6 +221,7 @@ namespace ast {
                 appendChild(iterable);
                 appendChild(body);
             }
+            virtual void accept(Visitor *v);
     };
 
     class While: public Loop {
@@ -211,16 +231,19 @@ namespace ast {
                 appendChild(expr);
                 appendChild(body);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Break: public Node {
         public:
             Break(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class Continue: public Node {
         public:
             Continue(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class Return: public Node {
@@ -230,40 +253,44 @@ namespace ast {
                 if (e)
                     appendChild(e);
             }
+            virtual void accept(Visitor *v);
     };
 
-    class TypeSpec: public Node {
-        public:
-            std::string *name;
-            std::vector<int> array;
-            bool pointer;
-            TypeSpec(std::string *_name): Node(), name(_name) {
-                addString(name);
-            }
-            void pushArray(const int size) {
-                array.push_back(size);
-            }
-    };
-
-    class FunctionExpr: public Node {
+    class Function: public Node {
         public:
             Node *params, *body, *ret;
-            FunctionExpr(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
+            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
                 appendChild(params);
                 appendChild(body);
                 if (ret)
                     appendChild(ret);
             }
+            virtual void accept(Visitor *v);
+    };
+
+    class TypeSpec: public Node {
+        public:
+            std::string *type_name;
+            std::vector<int> array;
+            bool pointer;
+            TypeSpec(std::string *_type_name): Node(), type_name(_type_name) {
+                addString(type_name);
+            }
+            void pushArray(const int size) {
+                array.push_back(size);
+            }
+            virtual void accept(Visitor *v);
     };
 
     class TypeDecl: public Node {
         public:
             Node *type_spec;
-            std::string *type_name;
-            TypeDecl(Node *_type_spec, std::string *_type_name): Node(), type_spec(_type_spec), type_name(_type_name) {
+            std::string *name;
+            TypeDecl(Node *_type_spec, std::string *_name): Node(), type_spec(_type_spec), name(_name) {
                 appendChild(type_spec);
-                addString(type_name);
+                addString(name);
             }
+            virtual void accept(Visitor *v);
     };
 
     class Declaration: public Node {
@@ -277,62 +304,108 @@ namespace ast {
                 if (type_spec)
                     appendChild(type_spec);
             }
+            virtual void accept(Visitor *v);
     };
 
     class TypeDeclList: public Node {
         public:
             TypeDeclList(): Node() { }
+            virtual void accept(Visitor *v);
     };
 
     class RecordDef: public Node {
         public:
-            std::string *type_name;
+            std::string *name;
             Node *decl_list;
-            RecordDef(std::string *_type_name, Node *_decl_list): Node(), type_name(_type_name), decl_list(_decl_list) {
-                addString(type_name);
+            RecordDef(std::string *_name, Node *_decl_list): Node(), name(_name), decl_list(_decl_list) {
+                addString(name);
                 appendChild(decl_list);
             }
+            virtual void accept(Visitor *v);
     };
 
     class TupleTypes: public Node {
         public:
             TupleTypes(): Node() { } 
+            virtual void accept(Visitor *v);
     };
 
     class TupleDef: public Node {
         public:
-            std::string *type_name;
+            std::string *name;
             Node *type_list;
-            TupleDef(std::string *_type_name, Node *_type_list): Node(), type_name(_type_name), type_list(_type_list) {
-                addString(type_name);
+            TupleDef(std::string *_name, Node *_type_list): Node(), name(_name), type_list(_type_list) {
+                addString(name);
                 appendChild(type_list);
             }
+            virtual void accept(Visitor *v);
     };
 
     class UnionItem: public Node {
         public:
-            std::string *type_name;
+            std::string *name;
             Node *type_spec;
-            UnionItem(std::string *_type_name, Node *_type_spec): Node(), type_name(_type_name), type_spec(_type_spec) {
-                addString(type_name);
+            UnionItem(std::string *_name, Node *_type_spec): Node(), name(_name), type_spec(_type_spec) {
+                addString(name);
                 if (type_spec)
                     appendChild(type_spec);
             }
+            virtual void accept(Visitor *v);
     };
 
     class UnionList: public Node {
         public:
             UnionList(): Node() { } 
+            virtual void accept(Visitor *v);
     };
 
     class UnionDef: public Node {
         public:
-            std::string *type_name;
+            std::string *name;
             Node *type_list;
-            UnionDef(std::string *_type_name, Node *_type_list): Node(), type_name(_type_name), type_list(_type_list) {
-                addString(type_name);
+            UnionDef(std::string *_name, Node *_type_list): Node(), name(_name), type_list(_type_list) {
+                addString(name);
                 appendChild(type_list);
             }
+            virtual void accept(Visitor *v);
+    };
+
+    class Visitor {
+        public:
+            virtual void visit(True *) = 0;
+            virtual void visit(False *) = 0;
+            virtual void visit(Integer *) = 0;
+            virtual void visit(Real *) = 0;
+            virtual void visit(String *) = 0;
+            virtual void visit(Variable *) = 0;
+            virtual void visit(Binary *) = 0;
+            virtual void visit(Unary *) = 0;
+            virtual void visit(And *) = 0;
+            virtual void visit(Or *) = 0;
+            virtual void visit(Array *) = 0;
+            virtual void visit(Call *) = 0;
+            virtual void visit(Subscript *) = 0;
+            virtual void visit(Expr *) = 0;
+            virtual void visit(Assign *) = 0;
+            virtual void visit(IfElse *) = 0;
+            virtual void visit(For *) = 0;
+            virtual void visit(While *) = 0;
+            virtual void visit(Break *) = 0;
+            virtual void visit(Continue *) = 0;
+            virtual void visit(Return *) = 0;
+            virtual void visit(Function *) = 0;
+            virtual void visit(TypeSpec *) = 0;
+            virtual void visit(TypeDecl *) = 0;
+            virtual void visit(Declaration *) = 0;
+            virtual void visit(TypeDeclList *) = 0;
+            virtual void visit(TupleTypes *) = 0;
+            virtual void visit(UnionItem *) = 0;
+            virtual void visit(UnionList *) = 0;
+            virtual void visit(RecordDef *) = 0;
+            virtual void visit(TupleDef *) = 0;
+            virtual void visit(UnionDef *) = 0;
+            virtual void visit(ExprList *) = 0;
+            virtual void visit(StmtList *) = 0;
     };
 }
 

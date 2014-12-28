@@ -8,8 +8,11 @@ void yyerror(YYLTYPE *yylloc, MambaContext *context, const char *err) {
 }
 
 int main(int argc, char *argv[]) {
-    MambaContext ctx(std::cin);
-    ctx.parse();
+    MambaContext ctx;
+    if (argc > 1)
+        ctx.parse(argv[1]);
+    else
+        ctx.parse();
     std::cout << ctx.getOutput() << std::endl;
     return 0;
 }

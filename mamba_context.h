@@ -2,18 +2,19 @@
 #define MAMBACONTEXT_H__
 
 #include <iostream>
+#include <fstream>
 #include "ast.h"
 
 class MambaContext {
     private:
-        std::istream &input;
+        std::ifstream input;
         ast::Node *output;
         void *scanner;
 
     public:
-        MambaContext(std::istream &);
+        MambaContext();
         virtual ~MambaContext();
-        int parse();
+        int parse(const char *name=NULL);
         int read(char *buf, int max_size);
         void *getScanner() { return scanner; }
         ast::Node *getOutput() { return output; }

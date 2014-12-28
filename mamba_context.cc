@@ -1,7 +1,7 @@
 #include "mamba_context.h"
 #include "lexer.h"
 
-MambaContext::MambaContext(std::istream &_input): input(_input), output(NULL) {
+MambaContext::MambaContext(): output(NULL) {
     yylex_init(&scanner);
     yyset_extra(this, scanner);
 }
@@ -12,7 +12,15 @@ MambaContext::~MambaContext() {
         delete output;
 }
 
-int MambaContext::parse() {
+int MambaContext::parse(const char *name) {
+    if (name) {
+        input.open(name);
+    } else {
+        input.copyfmt(std::cin);
+        input.clear(std::cin.rdstate());
+        input.basic_ios<char>::rdbuf(std::cin.rdbuf());
+    }
+
     return yyparse(this);
 }
 
