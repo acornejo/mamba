@@ -96,7 +96,7 @@ string      L?\"(\\.|[^\\"])*\"
 "/"             { return TK('/'); }
 "%"             { return TK('%'); }
 
-"->"            { return TK(T_RETURNS); }
+"->"            { return TK(T_ARROW); }
 
 "<="            { return TK(T_LE); }
 ">="            { return TK(T_GE); }
@@ -111,7 +111,8 @@ string      L?\"(\\.|[^\\"])*\"
 "^"             { return TK(T_BITXOR); }
 "~"             { return TK(T_BITNEG); }
 
-"let"           { return TK(LET); }
+"var"           { return TK(VAR); }
+"fun"           { return TK(FUN); }
 "False"         { return TK(FALSE); }
 "True"          { return TK(TRUE); }
 "record"        { return TK(RECORD); }

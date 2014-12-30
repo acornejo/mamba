@@ -66,16 +66,16 @@ alias Float32 as Float
 # Variable declaration
 Variables must always be initialized when declared
 
-    let x = 3 # implicit type inference
-    let y = 4
-    let Int x = 3 # explicit type inference
-    let Int y = 4
+    var x = 3 # implicit type inference
+    var y = 4
+    var Int x = 3 # explicit type inference
+    var Int y = 4
 
 ## Declaring arrays
-    let x = [2,3,4,5]
-    let Int[] x = [2,3,4,5]
-    let Int[4] x = [1,2,3,4]
-    let Int[4] x = [0]
+    var x = [2,3,4,5]
+    var Int[] x = [2,3,4,5]
+    var Int[4] x = [1,2,3,4]
+    var Int[4] x = [0]
 
 # Defining new types
 Mamba supports record types, tuple types and union types (also called
@@ -95,44 +95,52 @@ variants in other languages).
 
 # Declaring variables with records, tuples or unions
 
-    let point = Point{x = 0.0, y = 0.0}
-    let pair = Pair(0, "hi there")
-    let option = None
+Variables of custom types can be declared like so:
 
-As with variable declarations of POD types, all elements of a record or
-tuple type must be initialized when declared.
+    var point = Point(x = 0.0, y = 0.0)
+    var pair = Pair(0, "hi there")
+    var option = None
+
+As with variable declarations of POD types, all variable declarations of
+custom types must be initialized when declared. In particular, record
+and tuple types must always initialize all their elements through the
+initializing constructor as shown above.
+
+Mamba does not provide means of specifying alternative type
+constructors, but the same effect can be achieved through interfaces
+(explained below).
 
 # Function definitions
 
-    let dist = |Point p, Point q| -> Float:
-        let x = p.x-q.x
-        let y = p.y-q.y
+    fun dist |Point p, Point q| -> Float:
+        var x = p.x-q.x
+        var y = p.y-q.y
         return sqrt(x*x+y*y)
 
-    let p = Point{x = 1.0, y = 1.0}
-    let q = Point{x = 3.0, y = 3.0}
+    var p = Point(x = 1.0, y = 1.0)
+    var q = Point(x = 3.0, y = 3.0)
 
     assert(dist(p,q) == sqrt(8.0))
 
 # Defining interfaces
 
-    iface Default<T>:
-        default = || -> T
+The following interface defines an empty type constructor. The reserved
+typename `Self` is a placeholder for whatever type implements the
+interface.
 
-# Implementing interfaces
+    iface Default:
+        fun default || -> Self
 
-    impl Default<Point> for Point:
-        default = || -> Point:
-            return Point{x = 0.0, y = 0.0}
+We can now implement the default constructor interface for the custom
+type Point as follows:
 
-    let p = Point.default()
+    impl Default for Point:
+        fun default || -> Point:
+            return Point(x = 0.0, y = 0.0)
 
-This is as good a place as any to mention that Mamba does not provide
-the concept of type "constructors", since the same concept can be easily
-implemented using interfaces. The above example implements the "default
-constructor" for the type Point.
+    var p = Point.default()
 
-Mamba also doesn't have the concept of inheritance. However, most of the
+Mamba doesn't have the concept of inheritance. However, most of the
 object oriented programming patterns (including modularization and
 polymorphism) can be achieved through the use of interfaces.
 Below is a simple example of how to achieve the equivalent of having a
@@ -147,49 +155,75 @@ use polymorphism to treat them both as the base class Shape.
         Float radius
 
     iface Shape:
-        area = |self| -> Float
+        fun area |Self| -> Float
+        fun perim |Self| -> Float
 
-    impl Shape for Rect:
-        area = |self| -> Float:
-            return self.width*self.height
+    fun Rect.area |Rect self| -> Float:
+        return self.width*self.height
 
-    impl Shape for Circle:
-        area = |self| -> Float
-            return math.pi*self.radius**2
+    fun Rect.perim |Rect self| -> Float:
+        return self.width*2+self.height*2
 
-    let shape_list = [Rect{width=3.0, height=3.0} as Shape, Circle{radius = 2.0} as Shape]
+    fun Circle.area |Circle self| -> Float:
+        return math.PI*self.radius**2
+
+    fun Circle.perim |Circle self| -> Float:
+        return 2*math.Pi*self.radius
+
+    var shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
 
     for shape in shape_list:
         print!("area is #{shape.area()}")
 
+# alternative for implementing interfaces
+
+The approach above is very similar to the way `go` handles implementing
+interfaces. It has various benefits, one of them is that it does not
+require any additional keywords and that interfaces can be defined after
+they have been implemented by other types.
+
+One drawback of this way of implementing interfaces, is that it is not
+obvious how to reuse other (generic) implementations of the interface.
+Here is an alternative
+
+
+    impl Shape for Rect:
+        fun area |Rect self| -> Float:
+            return self.width*self.height
+        
+        fun perim |Rect self| -> Float:
+            return 2*(self.width+self.height)
+
 
 # static element access checking for tuples and records
-    let v = Pair(1, "hi there)
-    let p = Point.default()
-
-    p.z = 3.0 # won't compile
-
-    v[3] = 2.0 # won't compile
-
-    let i = 3
-    v[i] = 4.0 # won't compile
-
-    let i = turingHaltingProblem()
-    v[i] = 4.0 # won't compile
 
 On records you can always access existing members but you cannot access
 or create new members. In other words, records should not be confused
 with dictionaries or maps, for that purpose you can use a Map instead.
-    
+
+    var p = Point.default()
+
+    p.z = 3.0 # won't compile
+
 For tuples, you must always use an index whose values is known at
 compile time. If you want to index using values which are computed at
 runtime, then you should use arrays instead. By default there is bounds
 checking performed on arrays at runtime, although this can be disabled.
 
+    var v = Pair(1, "hi there)
+    v[3] = 2.0 # won't compile
+
+    var i = 3
+    v[i] = 4.0 # won't compile
+
+    var i = turingHaltingProblem()
+    v[i] = 4.0 # won't compile
+
+    
 However, in almost all use cases its possible to use arrays through
 iterators, which avoid bounds checking without sacrificing safety.
 
-    let a = [1,2,3,4,5]
+    var a = [1,2,3,4,5]
 
     for i in a:
         print!("#{i}")
@@ -201,8 +235,8 @@ implements a linked list, and you want to implement an interface to find
 the largest value of the liked list. What should you return if a user
 attempts to find the largest element of an empty linked list?
 
-    let list = [1,5,10,3,7,15,8,4]
-    let val:Maybe<int> = find_max(list)
+    var list = [1,5,10,3,7,15,8,4]
+    var Maybe<int> val = find_max(list)
 
     match val:
         None:
@@ -214,12 +248,12 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    let find_max = |Int[] list| -> Maybe<Int>
-        let max = None
+    fun find_max |Int[] list| -> Maybe<Int>:
+        var max = None
         for i in list:
             match max:
                 None:
-                    max = i
+                    max = Some(i)
                 Some(x):
                     if x > i:
                         max = Some(i)
@@ -228,10 +262,10 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    let find_max = |Int[] list| -> Maybe<Int>
+    fun find_max |Int[] list| -> Maybe<Int>:
         if list.length == 0:
-        return None
-        let max = list[0]
+            return None
+        var max = list[0]
         for i in list[1:]:
             if i > max:
             max = i
@@ -242,56 +276,53 @@ will save one branch for every item in the array, since we replaced the
 match inside the for loop with a single if outside the loop.
 
 # unpacking tuples
-    let Pair(z, w) = pair
-    let (z, w) = pair
+    var Pair(z, w) = pair
+    var (z, w) = pair
 
 # Allocating in heap
-    let *Int32 x = *3
-    let *Float32 y = *4.0
-    let *Point p = *Point{x=3.0, y=2.0}
+    var *Int32 x = *3
+    var *Float32 y = *4.0
+    var *Point p = *Point{x=3.0, y=2.0}
 
 # type inference works here too
-    let x = *3
-    let y = *4.0
-    let p = *Point{x=3.0, y=2.0}
+    var x = *3
+    var y = *4.0
+    var p = *Point{x=3.0, y=2.0}
 
 # Generic function definitions
-    let max = <T is Orderable>|T x, T y| -> T:
+    fun max<T is Orderable>|T x, T y| -> T:
         if x > y:
             return x
         else:
             return y
 
-    let min = <T is Orderable>|T x, T y| -> T:
+    fun max<T is Orderable>|T x, T y| -> T:
         if x > y:
             return y
         else:
             return x
 
-    let swap = <T is Copyable>|&T x, &T y|:
-        let t = x.copy()
+    fun swap<T is Copyable>|&T x, &T y|:
+        var t = x
         x = y
-        t = x
+        y = t
 
-    let add = <T is Num>|T x, T y| -> T:
-        return x + y
+    var big = max(3,4)
+    var small = min(3,4)
+    swap(&big,&small)
 
-    let sub = <T is Num>|T x, T y| -> T:
-        return x - y
 
-    record MapEntry<Key is Orderable, Val is Copyable>:
-        Key key
-        Val val
+# Generic types and interfaces
 
-    struct Map<Key is Orderable, Val is Copyable>:
-        MapEntry<Key,Val> test
-
-    struct MapIterator<Key is Orderable, Val is Copyable>
-        MapEntry<Key,Val> x
+    record MapIterator<Key is Orderable, Val is Copyable>
+        MapEntry<Key,Val> data
+        Maybe<Self> next
 
     impl Iterator<(T,V)> for MapIterator<T,V>
-        next = fn|self| -> Bool:
-            return next?
+        fun next |Self &self| -> Maybe<(T,V)>
+
+    record Map<Key is Orderable, Val is Copyable>:
+        MapEntry<Key,Val> test
 
     impl Iterable<(T,V)> for Map:
         iter = fn|self| -> MapIterator<T,V> return MapIterator<T,V>(self)

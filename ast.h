@@ -44,41 +44,34 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class Const: public Node {
-        public:
-            int idx;
-            Const(): Node() { }
-    };
-
-    class Integer: public Const {
+    class Integer: public Node{
         public:
             integer_t val;
-            Integer(integer_t _val): Const(), val(_val) { }
+            Integer(integer_t _val): Node(), val(_val) { }
             virtual void accept(Visitor *v);
     };
 
-    class Real: public Const {
+    class Real: public Node {
         public:
             real_t val;
-            Real(real_t _val): Const(), val(_val) { }
+            Real(real_t _val): Node(), val(_val) { }
             virtual void accept(Visitor *v);
     };
 
-
-    class String: public Const {
+    class String: public Node {
         public:
             std::string *val;
-            String(std::string *_val): Const(), val(_val) {
+            String(std::string *_val): Node(), val(_val) {
                 addString(val);
             }
             virtual void accept(Visitor *v);
     };
 
-    class Variable: public Const {
+    class Variable: public Node {
         public:
             bool write;
             std::string *val;
-            Variable(std::string *_val): Const(), write(false), val(_val) {
+            Variable(std::string *_val): Node(), write(false), val(_val) {
                 addString(val);
             }
             virtual void accept(Visitor *v);
@@ -125,19 +118,6 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class ExprList: public Node {
-        public:
-            ExprList(): Node() { }
-            virtual void accept(Visitor *v);
-    };
-
-
-    class StmtList: public Node {
-        public:
-            StmtList(): Node() { }
-            virtual void accept(Visitor *v);
-    };
-
     class Array: public Node {
         public:
             Node *elems;
@@ -173,6 +153,30 @@ namespace ast {
             Expr(Node *_e): Node(), e(_e) {
                 appendChild(e);
             }
+            virtual void accept(Visitor *v);
+    };
+
+    class Function: public Node {
+        public:
+            Node *params, *body, *ret;
+            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
+                appendChild(params);
+                appendChild(body);
+                if (ret)
+                    appendChild(ret);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class ExprList: public Node {
+        public:
+            ExprList(): Node() { }
+            virtual void accept(Visitor *v);
+    };
+
+    class StmtList: public Node {
+        public:
+            StmtList(): Node() { }
             virtual void accept(Visitor *v);
     };
 
@@ -214,10 +218,10 @@ namespace ast {
 
     class For: public Loop {
         public:
+            std::string *vname;
             Node *var, *iterable, *body;
-            For(Node *_var, Node *_iterable, Node *_body): Loop(), var(_var), iterable(_iterable), body(_body) {
-                ((Variable*)var)->write = true;
-                appendChild(var);
+            For(std::string *_vname, Node *_iterable, Node *_body): Loop(), vname(_vname), iterable(_iterable), body(_body) {
+                addString(vname);
                 appendChild(iterable);
                 appendChild(body);
             }
@@ -252,18 +256,6 @@ namespace ast {
             Return(Node *_e): Node(), e(_e) {
                 if (e)
                     appendChild(e);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class Function: public Node {
-        public:
-            Node *params, *body, *ret;
-            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
-                appendChild(params);
-                appendChild(body);
-                if (ret)
-                    appendChild(ret);
             }
             virtual void accept(Visitor *v);
     };
@@ -303,6 +295,17 @@ namespace ast {
                 appendChild(expr);
                 if (type_spec)
                     appendChild(type_spec);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class FuncDeclaration: public Node {
+        public:
+            std::string *name;
+            Node *func;
+            FuncDeclaration(std::string *_name, Node *_func): Node(), name(_name), func(_func) {
+                addString(name);
+                appendChild(func);
             }
             virtual void accept(Visitor *v);
     };
@@ -397,6 +400,7 @@ namespace ast {
             virtual void visit(TypeSpec *) = 0;
             virtual void visit(TypeDecl *) = 0;
             virtual void visit(Declaration *) = 0;
+            virtual void visit(FuncDeclaration *) = 0;
             virtual void visit(TypeDeclList *) = 0;
             virtual void visit(TupleTypes *) = 0;
             virtual void visit(UnionItem *) = 0;
