@@ -6,10 +6,9 @@ Mamba is a systems programming language. This means it is possible to
 write an operating system entirely in Mamba (with a minimal amount of
 assembler glue).
 It also means that Mamba does not have a runtime, and programmers can
-decide if their variables are allocated in the stack or heap. Mamba
-should be as efficient as C, and yet provides abstractions to simplify
-memory management that add as little cognitive burden on the programmer
-as possible (reference counted pointers for heap allocated data).
+decide if their variables are allocated in the stack or heap. Mamba aims
+to provide powerful abstractions to easy programming without relying on
+a runtime.
 
 Mamba recognizes that code is read much more often than it is written,
 and thus Mamba code should be self-describing and (to the extent
@@ -53,9 +52,7 @@ Byte
 String
 
 ## Machine dependent
-Float
-Int
-Unt
+Imem (Unt32 or Unt64 depending on the architecture)
 
 # Type aliases
 alias Unt8 as Byte
@@ -89,7 +86,7 @@ variants in other languages).
         Int
         String
 
-    union Maybe<T>:
+    union Maybe{T}:
         None
         Some(T)
 
@@ -236,7 +233,7 @@ the largest value of the liked list. What should you return if a user
 attempts to find the largest element of an empty linked list?
 
     var list = [1,5,10,3,7,15,8,4]
-    var Maybe<int> val = find_max(list)
+    var Maybe{int} val = find_max(list)
 
     match val:
         None:
@@ -248,7 +245,7 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    fun find_max |Int[] list| -> Maybe<Int>:
+    fun find_max |Int[] list| -> Maybe{Int}:
         var max = None
         for i in list:
             match max:
@@ -262,7 +259,7 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    fun find_max |Int[] list| -> Maybe<Int>:
+    fun find_max |Int[] list| -> Maybe{Int}:
         if list.length == 0:
             return None
         var max = list[0]
@@ -282,27 +279,27 @@ match inside the for loop with a single if outside the loop.
 # Allocating in heap
     var *Int32 x = *3
     var *Float32 y = *4.0
-    var *Point p = *Point{x=3.0, y=2.0}
+    var *Point p = *Point(x=3.0, y=2.0)
 
 # type inference works here too
     var x = *3
     var y = *4.0
-    var p = *Point{x=3.0, y=2.0}
+    var p = *Point(x=3.0, y=2.0)
 
 # Generic function definitions
-    fun max<T is Orderable>|T x, T y| -> T:
+    fun max{T is Orderable}|T x, T y| -> T:
         if x > y:
             return x
         else:
             return y
 
-    fun max<T is Orderable>|T x, T y| -> T:
+    fun max{T is Orderable}|T x, T y| -> T:
         if x > y:
             return y
         else:
             return x
 
-    fun swap<T is Copyable>|&T x, &T y|:
+    fun swap{T is Copyable}|&T x, &T y|:
         var t = x
         x = y
         y = t
@@ -314,15 +311,16 @@ match inside the for loop with a single if outside the loop.
 
 # Generic types and interfaces
 
-    record MapIterator<Key is Orderable, Val is Copyable>
-        MapEntry<Key,Val> data
-        Maybe<Self> next
+    record MapIterator{Key is Orderable, Val is Copyable}
+        MapEntry{Key,Val} data
+        Maybe{Self} next
 
-    impl Iterator<(T,V)> for MapIterator<T,V>
-        fun next |Self &self| -> Maybe<(T,V)>
+    impl Iterator{T,V} for MapIterator{T,V}
+        fun next |Self &self| -> Maybe{T,V}
 
-    record Map<Key is Orderable, Val is Copyable>:
-        MapEntry<Key,Val> test
+    record Map{Key is Orderable, Val is Copyable}:
+        MapEntry{Key,Val} test
 
-    impl Iterable<(T,V)> for Map:
-        iter = fn|self| -> MapIterator<T,V> return MapIterator<T,V>(self)
+    impl Iterable{T,V} for Map:
+        fun iter |Self self| -> MapIterator{T,V}:
+            return MapIterator{T,V}(self)
