@@ -31,8 +31,8 @@
 %token<token> INDENT DEDENT NEWLINE
 %token<token> T_LT T_LE T_GT T_GE T_EQ T_NE
 %token<token> T_ADD T_SUB T_MUL T_DIV T_MOD T_POW
-%token<token> T_LSHIFT T_RSHIFT T_BITAND T_BITOR T_BITXOR T_BITNEG T_ARROW
-%token<token> VAR FUN FALSE TRUE TUPLE RECORD UNION OR AND NOT IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
+%token<token> T_LSHIFT T_RSHIFT T_BITAND T_BITOR T_BITXOR T_BITNEG T_ARROW T_ELLIPSIS
+%token<token> VAR FUN FALSE TRUE RECORD UNION OR AND NOT IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
 
 /* Clean up memory in case of error */
 %destructor { delete $$; } <node>
@@ -52,7 +52,7 @@
 %right T_POW
 
 %type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr expr_list_ne expr_list array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_block record_suite type_stmt record_def tuple_block tuple_suite tuple_def union_decl union_block union_suite union_def type_spec_np type_spec type_decl type_decl_list 
+%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr expr_list_ne expr_list array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_block record_suite record_stmt union_decl union_block union_suite union_stmt pointer_type array_type ref_type tuple_type func_type return_type type_spec type_spec_list type_spec_list_ne type_decl type_decl_list
 
 %start program
 
@@ -74,7 +74,6 @@ simple_stmt: small_stmt NEWLINE                          { $$ = $1; }
 
 small_stmt: expr                                         { $$ = new ast::Expr($1); }
           | decl_stmt                                    { $$ = $1; }
-          | func_stmt                                    { $$ = $1; }
           | assn_stmt                                    { $$ = $1; }
           | break_stmt                                   { $$ = $1; }
           | continue_stmt                                { $$ = $1; }
@@ -84,7 +83,9 @@ small_stmt: expr                                         { $$ = new ast::Expr($1
 compound_stmt: if_stmt                                   { $$ = $1; }
              | while_stmt                                { $$ = $1; }
              | for_stmt                                  { $$ = $1; }
-             | type_stmt                                 { $$ = $1; }
+             | func_stmt                                 { $$ = $1; }
+             | record_stmt                               { $$ = $1; }
+             | union_stmt                                { $$ = $1; }
              ;
 
 break_stmt: BREAK                                        { $$ = new ast::Break(); }
@@ -101,20 +102,11 @@ assn_stmt: wexpr '=' expr                                { $$ = new ast::Assign(
          | wexpr '=' assn_stmt                           { $$ = new ast::Assign($1, $3); }
          ;
 
-type_spec_np: IDENTIFIER                                 { $$ = new ast::TypeSpec($1); }
-            | type_spec_np '[' ']'                       { $$ = $1; ((ast::TypeSpec*)$1)->pushArray(-1); }
-            | type_spec_np '[' INTEGER ']'               { $$ = $1; ((ast::TypeSpec*)$1)->pushArray($3); }
-            ;
-
-type_spec: type_spec_np                                  { $$ = $1; }
-         | '*' type_spec_np                              { $$ = $2; ((ast::TypeSpec*)$2)->pointer = true; }
-         ;
-
 decl_stmt: VAR IDENTIFIER '=' expr                       { $$ = new ast::Declaration($2, $4, NULL); }
          | VAR type_spec IDENTIFIER '=' expr             { $$ = new ast::Declaration($3, $5, $2); }
          ;
 
-func_stmt: FUN IDENTIFIER func_expr                      { $$ = new ast::FuncDeclaration($2, $3); }
+func_stmt: FUN IDENTIFIER func_expr                      { $$ = new ast::FuncDecl($2, $3); }
          ;
 
 if_stmt: IF expr ':' suite elif_stmt                     { $$ = new ast::IfElse($2, $4, $5); }
@@ -131,12 +123,11 @@ while_stmt: WHILE expr ':' suite                         { $$ = new ast::While($
 for_stmt: FOR IDENTIFIER IN expr ':' suite               { $$ = new ast::For($2, $4, $6); }
         ;
 
-wexpr: IDENTIFIER                                        { $$ = new ast::Variable($1); }
-     | IDENTIFIER '[' expr ']'                           { $$ = new ast::Subscript(new ast::Variable($1), $3); }
-     ;
+record_stmt: RECORD IDENTIFIER ':' record_suite          { $$ = new ast::RecordDef($2, $4); }
+          ;
 
-type_decl: type_spec IDENTIFIER                          { $$ = new ast::TypeDecl($1, $2); }
-         ;
+union_stmt: UNION IDENTIFIER ':' union_suite             { $$ = new ast::UnionDef($2, $4); }
+          ;
 
 record_block: type_decl NEWLINE                          { $$ = new ast::TypeDeclList(); $$->appendChild($1); }
             | record_block type_decl NEWLINE             { $$ = $1; $1->appendChild($2); }
@@ -144,19 +135,6 @@ record_block: type_decl NEWLINE                          { $$ = new ast::TypeDec
 
 record_suite: NEWLINE INDENT record_block DEDENT         { $$ = $3; }
             ;
-
-record_def: RECORD IDENTIFIER ':' record_suite           { $$ = new ast::RecordDef($2, $4); }
-          ;
-
-tuple_block: type_spec NEWLINE                           { $$ = new ast::TupleTypes(); $$->appendChild($1); }
-           | tuple_block type_spec NEWLINE               { $$ = $1; $1->appendChild($2); }
-           ;
-
-tuple_suite: NEWLINE INDENT tuple_block DEDENT           { $$ = $3; }
-           ;
-
-tuple_def: TUPLE IDENTIFIER ':' tuple_suite              { $$ = new ast::TupleDef($2, $4); }
-         ;
 
 union_decl: IDENTIFIER                                   { $$ = new ast::UnionItem($1, NULL); }
           | IDENTIFIER '(' type_spec ')'                 { $$ = new ast::UnionItem($1, $3); }
@@ -169,13 +147,55 @@ union_block: union_decl NEWLINE                          { $$ = new ast::UnionLi
 union_suite: NEWLINE INDENT union_block DEDENT           { $$ = $3; }
            ;
 
-union_def: UNION IDENTIFIER ':' union_suite              { $$ = new ast::UnionDef($2, $4); }
+pointer_type: '*' type_spec                              { $$ = new ast::PointerType($2); }
+            ;
+
+array_type: '[' ']' type_spec                            { $$ = new ast::ArrayType($3, -1); }
+          | '[' INTEGER ']' type_spec                    { $$ = new ast::ArrayType($4, $2); }
+          ;
+
+ref_type: '&' type_spec                                  { $$ = new ast::ReferenceType($2); }
+        ;
+
+type_spec_list: type_spec                                { $$ = new ast::TypeList(); $$->appendChild($1); }
+              | type_spec_list ',' type_spec             { $$ = $1; $$->appendChild($3); }
+              ;
+
+type_spec_list_ne: type_spec ',' type_spec               { $$ = new ast::TypeList(); $$->appendChild($1); $$->appendChild($3); }
+                 | type_spec_list_ne ',' type_spec       { $$ = $1; $$->appendChild($3); }
+
+tuple_type: '(' type_spec_list_ne ')'                    { $$ = new ast::TupleType($2); }
+          ;
+
+return_type: T_ARROW '(' ')'                             { $$ = NULL; }
+           | T_ARROW type_spec                           { $$ = $2; }
+
+func_type: '|' '|' return_type                           { $$ = new ast::FuncType(new ast::TypeList(), $3); }
+         | '|' type_spec_list '|' return_type            { $$ = new ast::FuncType($2, $4); }
          ;
 
-type_stmt: record_def                                    { $$ = $1; }
-         | tuple_def                                     { $$ = $1; }
-         | union_def                                     { $$ = $1; }
+type_spec: IDENTIFIER                                    { $$ = new ast::SimpleType($1); }
+         | pointer_type                                  { $$ = $1; }
+         | array_type                                    { $$ = $1; }
+         | tuple_type                                    { $$ = $1; }
+         | ref_type                                      { $$ = $1; }
+         | func_type                                     { $$ = $1; }
          ;
+
+type_decl: type_spec IDENTIFIER                          { $$ = new ast::TypeDecl($1, $2); }
+         ;
+
+type_decl_list: type_decl                                { $$ = new ast::TypeDeclList(); $$->appendChild($1); }
+              | type_decl_list ',' type_decl             { $$ = $1; $1->appendChild($3); }
+              ;
+
+func_expr: '|' '|' return_type ':' suite                 { $$ = new ast::Function(new ast::TypeList(), $5, $3); }
+         | '|' type_decl_list '|' return_type ':' suite  { $$ = new ast::Function($2, $6, $4); }
+         ;
+
+wexpr: IDENTIFIER                                        { $$ = new ast::Variable($1); }
+     | IDENTIFIER '[' expr ']'                           { $$ = new ast::Subscript(new ast::Variable($1), $3); }
+     ;
 
 expr_list_ne: expr                                       { $$ = new ast::ExprList(); $$->appendChild($1); }
             | expr_list_ne ',' expr                      { $$ = $1; $1->appendChild($3); }
@@ -186,17 +206,6 @@ expr_list: %empty                                        { $$ = new ast::ExprLis
 
 array_expr: '[' expr_list_ne ']'                         { $$ = new ast::Array($2); }
           ;
-
-type_decl_list: %empty                                   { $$ = new ast::TypeDeclList(); }
-              | type_decl                                { $$ = new ast::TypeDeclList(); $$->appendChild($1); }
-              | type_decl_list ',' type_decl             { $$ = $1; $1->appendChild($3); }
-              ;
-
-func_expr: '|' type_decl_list '|' T_ARROW type_spec ':' suite
-         { $$ = new ast::Function($2, $7, $5); }
-         | '|' type_decl_list '|' ':' suite
-         { $$ = new ast::Function($2, $5, NULL); }
-         ;
 
 call_expr: IDENTIFIER '(' expr_list ')'                  { $$ = new ast::Call(new ast::Variable($1), $3); }
          | call_expr '(' expr_list ')'                   { $$ = new ast::Call($1, $3); }

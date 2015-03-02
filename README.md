@@ -1,36 +1,3 @@
-# Mamba's Philosophy
-
-Mamba follows the DRY principle for software engineering.
-
-Mamba is a systems programming language. This means it is possible to
-write an operating system entirely in Mamba (with a minimal amount of
-assembler glue).
-It also means that Mamba does not have a runtime, and programmers can
-decide if their variables are allocated in the stack or heap. Mamba aims
-to provide powerful abstractions to easy programming without relying on
-a runtime.
-
-Mamba recognizes that code is read much more often than it is written,
-and thus Mamba code should be self-describing and (to the extent
-possible) self-documenting. In general Mamba doesn't enable programming
-"magic" one-liners which save the code-writer typing a handful of
-characters, at the expense of having every code-reader decipher what is
-happening. The syntax of the language aims to be natural and easily
-readable by people, and is heavily inspired by python.
-     
-Mamba aims not not provide several constructs to perform the same
-operation (i.e. switch vs if/else), but instead provides a single
-canonical way of doing each thing.
-To the extent possible, Mamba strives to be a programming language such
-that if two programmers implement the same algorithm using Mamba, their
-implementations should be very similar.
-
-In the same spirit as above Mamba enforces strict naming conventions for
-types, functions and variables. For that same reason, whitespace has a
-meaning in Mamba (as in python), and thus there are not multiple
-"indentation" styles, but a single possible way to format your Mamba
-code.
-
 # Naming rules
 
 - Types must have the first letter be capital and can't have underscores
@@ -43,86 +10,154 @@ snake_case).
 
 # POD Types
 ## Machine independent
-Bool
-Int{8,16,32,64}
-Unt{8,16,32,64}
-Float{32,64}
-Char (unicode)
-Byte
-String
+- Bool
+- Int{8,16,32,64}
+- Unt{8,16,32,64}
+- Float{32,64}
+- Char (unicode)
+- Byte
+- Str
 
 ## Machine dependent
 Imem (Unt32 or Unt64 depending on the architecture)
 
 # Type aliases
-alias Unt8 as Byte
-alias Int32 as Int
-alias Unt32 as Unt
-alias Float32 as Float
+- alias Byte Unt8
+- alias Int Int32
+- alias Unt Unt32
+- alias Float Float32
 
 # Variable declaration
-Variables must always be initialized when declared
+Variables must always be initialized when declared.
 
-    var x = 3 # implicit type inference
-    var y = 4
-    var Int x = 3 # explicit type inference
-    var Int y = 4
+    var Int x = 3
+    var Float y = 4.0
 
-## Declaring arrays
-    var x = [2,3,4,5]
-    var Int[] x = [2,3,4,5]
-    var Int[4] x = [1,2,3,4]
-    var Int[4] x = [0]
+In cases where the variable type can be inferred from context, it is not
+necessary to explicitly declare its type.
 
-# Defining new types
-Mamba supports record types, tuple types and union types (also called
-variants in other languages).
+    var x = 3
+    var y = 4.0
+
+Mamba does not perform any implicit type conversions. The `as` keyword can be used to perform explicit type conversions.
+
+The following example does *not* compile, since the variable is declared
+to have type `Float` but we are assigning it an integer.
+
+    var Float z = 50
+
+However, the either of the following will compile.
+
+    var Float z = 50.0
+    var Float z = 50 as Float
+
+
+# Arrays
+    var x = [1,2,3,4]
+    var []Int x = [1,2,3,4]
+    var []Int x = [0 times 20]
+
+# Tuples
+
+Tuples are similar to arrays in that they both represent an ordered
+sequence of some fixed length. The main difference is that while arrays
+can only hold values of the same type, a tuple can hold values of
+distinct types.
+
+The next example shows a tuple that holds a string and an integer (for
+example, to represent the name and age of death of famous writers).
+
+    var (String, Int) jane = ("Jane Austen", 41)
+    var (String, Int) ernest = ("Ernest Hemingway", 61)
+    var (String, Int) mark = ("Mark Twain", 74)
+
+As with POD types it is not necessary to explicitly annotate the type of
+a tuple in cases where mamba can infer it by the context. For instance,
+  we could have declared `jane` as follows:
+
+    var jane = ("Jane Austen", 41)
+
+# Records
+
+Records, like tuples, can also be used to hold a sequence of values of
+different types. However, each value held by a record must be associated
+with a name (unlike tuples and arrays which associate values with a
+numerical index).
+
+The following defines a record two hold a two-dimensional point.
 
     record Point:
         Float x
         Float y
 
-    tuple Pair:
-        Int
-        String
+
+    var p = Point(x=2.0, y=3.0)
+
+# Unions
 
     union Maybe{T}:
         None
         Some(T)
 
-# Declaring variables with records, tuples or unions
+    var option = Some(3)
 
-Variables of custom types can be declared like so:
+It is worth noting that if we wanted to initialize option to `None`, the
+following will *not* work:
 
-    var point = Point(x = 0.0, y = 0.0)
-    var pair = Pair(0, "hi there")
     var option = None
 
-As with variable declarations of POD types, all variable declarations of
-custom types must be initialized when declared. In particular, record
-and tuple types must always initialize all their elements through the
-initializing constructor as shown above.
+This is because there isn't enough information to determine if option
+is of type `Mayba{Int}`, `Maybe{Str}`, etc. We can work around this by
+explicitly declaring the variable type. That is:
 
-Mamba does not provide means of specifying alternative type
-constructors, but the same effect can be achieved through interfaces
-(explained below).
+    var Maybe{Int} option = None
+
 
 # Function definitions
 
+We already learned how to declare new custom variables and define
+variables. Functions definitions are similar.
+
+
     fun dist |Point p, Point q| -> Float:
-        var x = p.x-q.x
-        var y = p.y-q.y
-        return sqrt(x*x+y*y)
+        var x = p.x - q.x
+        var y = p.y - q.y
+        return sqrt(x*x + y*y)
 
     var p = Point(x = 1.0, y = 1.0)
     var q = Point(x = 3.0, y = 3.0)
 
     assert(dist(p,q) == sqrt(8.0))
 
+
+An alternative way of declaring the function dist would be as follows:
+
+    var dist = |Point p, Point q| -> Float:
+        var x = p.x - q.x
+        var y = p.y - q.y
+        return sqrt(x*x + y*y)
+
+These two forms are *not* equivalent. When declaring
+functions using the `fun` keyword it is possible to bind several
+different function definitions to the same function name; this feature
+is commonly known as function overloading.
+On the other hand, when using the `var` keyword the function definition
+is bound to a variable name, and in Mamba variables have a single
+binding.
+
+Therefore, if we wanted to define two functions named `dist`, one for
+computing the euclidean distance between two points (shown above), and
+another for computing the statistical distance between two random
+variables, we can only do it through the `fun` keyword.
+
+As a rule of thumb, you should always use the `fun` keyword when
+declaring functions, the only exception is when you want to explicitly
+prevent overloading.
+
 # Defining interfaces
 
 The following interface defines an empty type constructor. The reserved
-typename `Self` is a placeholder for whatever type implements the
+type `Self` is a placeholder for whatever type implements the
 interface.
 
     iface Default:
@@ -131,18 +166,18 @@ interface.
 We can now implement the default constructor interface for the custom
 type Point as follows:
 
-    impl Default for Point:
-        fun default || -> Point:
-            return Point(x = 0.0, y = 0.0)
+    fun Point.default || -> Point:
+        return Point(x = 0.0, y = 0.0)
 
     var p = Point.default()
 
-Mamba doesn't have the concept of inheritance. However, most of the
-object oriented programming patterns (including modularization and
-polymorphism) can be achieved through the use of interfaces.
-Below is a simple example of how to achieve the equivalent of having a
-class Rect and class Circle both inherit from a class Shape, and then
-use polymorphism to treat them both as the base class Shape.
+Mamba doesn't provide inheritance between types or other traditional
+concepts in object oriented languages. However, most of the object
+oriented programming patterns (including modularization and
+polymorphism) can be achieved through the use of type interfaces. Below
+is a simple example of how to achieve the equivalent of having a class
+Rect and class Circle both inherit from a class Shape, and then use
+polymorphism to treat them both as the base class Shape.
 
     record Rect:
         Float width
@@ -167,30 +202,13 @@ use polymorphism to treat them both as the base class Shape.
     fun Circle.perim |Circle self| -> Float:
         return 2*math.Pi*self.radius
 
+    fun print_shape |Shape shape|:
+        print!("area is #{shape.area()} and perimter #{shape.perim()}")
+
     var shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
 
     for shape in shape_list:
-        print!("area is #{shape.area()}")
-
-# alternative for implementing interfaces
-
-The approach above is very similar to the way `go` handles implementing
-interfaces. It has various benefits, one of them is that it does not
-require any additional keywords and that interfaces can be defined after
-they have been implemented by other types.
-
-One drawback of this way of implementing interfaces, is that it is not
-obvious how to reuse other (generic) implementations of the interface.
-Here is an alternative
-
-
-    impl Shape for Rect:
-        fun area |Rect self| -> Float:
-            return self.width*self.height
-        
-        fun perim |Rect self| -> Float:
-            return 2*(self.width+self.height)
-
+        print_shape(shape)
 
 # static element access checking for tuples and records
 
@@ -207,16 +225,12 @@ compile time. If you want to index using values which are computed at
 runtime, then you should use arrays instead. By default there is bounds
 checking performed on arrays at runtime, although this can be disabled.
 
-    var v = Pair(1, "hi there)
+    var v = (1, "hi there)
     v[3] = 2.0 # won't compile
 
-    var i = 3
     v[i] = 4.0 # won't compile
 
-    var i = turingHaltingProblem()
-    v[i] = 4.0 # won't compile
 
-    
 However, in almost all use cases its possible to use arrays through
 iterators, which avoid bounds checking without sacrificing safety.
 
@@ -227,10 +241,9 @@ iterators, which avoid bounds checking without sacrificing safety.
 
 # unwrapping unions
 Unions are particularly useful to send and receive parameters which may
-or may not have a value. For example, suppose you have a type that
-implements a linked list, and you want to implement an interface to find
-the largest value of the liked list. What should you return if a user
-attempts to find the largest element of an empty linked list?
+or may not have a value. For example, suppose you want to find
+the largest value in a list. What should you return if a user
+attempts to find the largest element of an empty list?
 
     var list = [1,5,10,3,7,15,8,4]
     var Maybe{int} val = find_max(list)
@@ -265,7 +278,7 @@ illustrate the point. Instead you should write:
         var max = list[0]
         for i in list[1:]:
             if i > max:
-            max = i
+                max = i
         return Some(max)
 
 For small lists there will be no difference, but for larger lists you
@@ -299,7 +312,7 @@ match inside the for loop with a single if outside the loop.
         else:
             return x
 
-    fun swap{T is Copyable}|&T x, &T y|:
+    fun swap{T is Copyable}|&T x, &T y| -> ():
         var t = x
         x = y
         y = t

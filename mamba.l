@@ -96,6 +96,7 @@ string      L?\"(\\.|[^\\"])*\"
 "/"             { return TK('/'); }
 "%"             { return TK('%'); }
 
+"..."           { return TK(T_ELLIPSIS); }
 "->"            { return TK(T_ARROW); }
 
 "<="            { return TK(T_LE); }
@@ -116,7 +117,6 @@ string      L?\"(\\.|[^\\"])*\"
 "False"         { return TK(FALSE); }
 "True"          { return TK(TRUE); }
 "record"        { return TK(RECORD); }
-"tuple"         { return TK(TUPLE); }
 "union"         { return TK(UNION); }
 "or"            { return TK(OR); }
 "and"           { return TK(AND); }

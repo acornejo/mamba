@@ -260,17 +260,67 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class TypeSpec: public Node {
+    class ReferenceType: public Node {
+        public:
+            Node *type_spec;
+            ReferenceType(Node *_type_spec): Node(), type_spec(_type_spec) {
+                appendChild(type_spec);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class PointerType: public Node {
+        public:
+            Node *type_spec;
+            PointerType(Node *_type_spec): Node(), type_spec(_type_spec) {
+                appendChild(type_spec);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class ArrayType: public Node {
+        public:
+            Node *type_spec;
+            size_t size;
+            ArrayType(Node *_type_spec, size_t _size): Node(), type_spec(_type_spec), size(_size) {
+                appendChild(type_spec);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class TupleType: public Node {
+        public:
+            Node *type_spec;
+            TupleType(Node *_type_spec): Node(), type_spec(_type_spec) {
+                appendChild(type_spec);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class FuncType: public Node {
+        public:
+            Node *in_types;
+            Node *out_type;
+            FuncType(Node *_in_types, Node *_out_type): Node(), in_types(_in_types), out_type(_out_type) {
+                appendChild(in_types);
+                if (out_type)
+                    appendChild(out_type);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class SimpleType: public Node {
         public:
             std::string *type_name;
-            std::vector<int> array;
-            bool pointer;
-            TypeSpec(std::string *_type_name): Node(), type_name(_type_name) {
+            SimpleType(std::string *_type_name): Node(), type_name(_type_name) {
                 addString(type_name);
             }
-            void pushArray(const int size) {
-                array.push_back(size);
-            }
+            virtual void accept(Visitor *v);
+    };
+
+    class TypeList: public Node {
+        public:
+            TypeList(): Node() { }
             virtual void accept(Visitor *v);
     };
 
@@ -299,11 +349,11 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class FuncDeclaration: public Node {
+    class FuncDecl: public Node {
         public:
             std::string *name;
             Node *func;
-            FuncDeclaration(std::string *_name, Node *_func): Node(), name(_name), func(_func) {
+            FuncDecl(std::string *_name, Node *_func): Node(), name(_name), func(_func) {
                 addString(name);
                 appendChild(func);
             }
@@ -327,23 +377,6 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class TupleTypes: public Node {
-        public:
-            TupleTypes(): Node() { } 
-            virtual void accept(Visitor *v);
-    };
-
-    class TupleDef: public Node {
-        public:
-            std::string *name;
-            Node *type_list;
-            TupleDef(std::string *_name, Node *_type_list): Node(), name(_name), type_list(_type_list) {
-                addString(name);
-                appendChild(type_list);
-            }
-            virtual void accept(Visitor *v);
-    };
-
     class UnionItem: public Node {
         public:
             std::string *name;
@@ -358,7 +391,7 @@ namespace ast {
 
     class UnionList: public Node {
         public:
-            UnionList(): Node() { } 
+            UnionList(): Node() { }
             virtual void accept(Visitor *v);
     };
 
@@ -397,19 +430,23 @@ namespace ast {
             virtual void visit(Continue *) = 0;
             virtual void visit(Return *) = 0;
             virtual void visit(Function *) = 0;
-            virtual void visit(TypeSpec *) = 0;
             virtual void visit(TypeDecl *) = 0;
             virtual void visit(Declaration *) = 0;
-            virtual void visit(FuncDeclaration *) = 0;
+            virtual void visit(FuncDecl *) = 0;
             virtual void visit(TypeDeclList *) = 0;
-            virtual void visit(TupleTypes *) = 0;
             virtual void visit(UnionItem *) = 0;
             virtual void visit(UnionList *) = 0;
             virtual void visit(RecordDef *) = 0;
-            virtual void visit(TupleDef *) = 0;
             virtual void visit(UnionDef *) = 0;
             virtual void visit(ExprList *) = 0;
             virtual void visit(StmtList *) = 0;
+            virtual void visit(SimpleType *) = 0;
+            virtual void visit(ReferenceType *) = 0;
+            virtual void visit(PointerType *) = 0;
+            virtual void visit(ArrayType *) = 0;
+            virtual void visit(TupleType *) = 0;
+            virtual void visit(FuncType *) = 0;
+            virtual void visit(TypeList *) = 0;
     };
 }
 

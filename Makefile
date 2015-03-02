@@ -13,11 +13,11 @@ $(EXEC): $(OBJS)
 
 main.o: parser.h lexer.h
 
-lexer.cc lexer.h: mamba.l parser.h
-	$(LEX) -d mamba.l
-
 parser.cc parser.h: mamba.y
 	$(YACC) mamba.y
+
+lexer.cc lexer.h: mamba.l parser.h
+	$(LEX) -d mamba.l
 
 .PHONY: clean
 
