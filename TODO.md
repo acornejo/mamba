@@ -62,45 +62,6 @@ results in a dangling pointer. This is not possible in Mamba, since the
 compiler will not allow you to store a pointer to a stack allocated
 variable.
 
-# How can a function modify its parameters?
-
-For the most part, functions receive input parameters which are treated
-as readonly, and returns a new parameter (or nothing) as its output.
-
-However, in some cases it is useful to allow a function to modify one or
-more of the parameters it received as input. This can be achieved in
-Mamba by specifying in the function declaration that one or more of the
-parameters is used as a reference.
-
-    let increment = |&Int x|:
-        x = x + 1
-
-    let y = 1
-    increment(&y)
-    assert(y == 2)
-
-When calling a function that requires a reference to a parameter, you
-must explicitly send the parameter as a reference during invocation.
-This removes surprises and allows anyone reading the code to infer that
-a variable might be modified by a function. (This is in contrast to the
-concept of references in C++, which are specified when declaring
-a function but not when calling it.)
-
-# add support for anonymous tuples and records
-
-    let a = (0, "hi there")
-    let p = {x = 1.0, y = 2.0}
-
 # add support for tuple unpacking
 
     let (x, y) = tupleReturningFunc()
-
-# add support for struct unpacking
-
-    let {x, y} = strucctReturningFunc()
-
-collection.map(|Int x| -> Int:
-    return x + 1
-, |Int y| -> Int:
-    return y - 1
-)

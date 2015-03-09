@@ -53,8 +53,8 @@ However, the either of the following will compile.
 
 
 # Arrays
-    var x = [1,2,3,4]
-    var []Int x = [1,2,3,4]
+    var x = [1, 2, 3, 4]
+    var []Int x = [1, 2, 3, 4]
     var []Int x = [0 times 20]
 
 # Tuples
@@ -153,6 +153,27 @@ variables, we can only do it through the `fun` keyword.
 As a rule of thumb, you should always use the `fun` keyword when
 declaring functions, the only exception is when you want to explicitly
 prevent overloading.
+
+# Functions that receive references
+
+Mamba treats the input parameters received by a function as read-only.
+Restricting functions to not have side effects on their input parameters
+generally leads to cleaner code. Mamba provides references for those
+rare cases when modifying the input parameters is actually what you
+want.
+A variable is declared to be a reference by prepending its type with the `&`
+operator. They must be declared as references both in the function
+definition and during function invocation.
+
+    fun increment |&Int x| -> ():
+        x = x + 1
+
+    var a = 1
+    assert(a == 1)
+    increment(&a)
+    assert(a == 2)
+    increment(&a)
+    assert(a == 3)
 
 # Defining interfaces
 

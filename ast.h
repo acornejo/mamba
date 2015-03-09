@@ -69,9 +69,8 @@ namespace ast {
 
     class Variable: public Node {
         public:
-            bool write;
             std::string *val;
-            Variable(std::string *_val): Node(), write(false), val(_val) {
+            Variable(std::string *_val): Node(), val(_val) {
                 addString(val);
             }
             virtual void accept(Visitor *v);
@@ -79,9 +78,9 @@ namespace ast {
 
     class Binary: public Node {
         public:
-            int type;
+            int op;
             Node *left, *right;
-            Binary(int _type, Node *_left, Node *_right): Node(), type(_type), left(_left), right(_right) {
+            Binary(int _op, Node *_left, Node *_right): Node(), op(_op), left(_left), right(_right) {
                 appendChild(left);
                 appendChild(right);
             }
@@ -90,9 +89,9 @@ namespace ast {
 
     class Unary: public Node {
         public:
-            int type;
+            int op;
             Node *down;
-            Unary(int _type, Node *_down): Node(), type(_type), down(_down) {
+            Unary(int _op, Node *_down): Node(), op(_op), down(_down) {
                 appendChild(down);
             }
             virtual void accept(Visitor *v);
@@ -118,11 +117,24 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class Array: public Node {
+    class Function: public Node {
         public:
-            Node *elems;
-            Array(Node *_elems): Node(), elems(_elems) {
-                appendChild(elems);
+            Node *params, *body, *ret;
+            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
+                appendChild(params);
+                appendChild(body);
+                if (ret)
+                    appendChild(ret);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class Return: public Node {
+        public:
+            Node *e;
+            Return(Node *_e): Node(), e(_e) {
+                if (e)
+                    appendChild(e);
             }
             virtual void accept(Visitor *v);
     };
@@ -133,6 +145,15 @@ namespace ast {
             Call(Node *_parent, Node *_params): Node(), parent(_parent), params(_params) {
                 appendChild(parent);
                 appendChild(params);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+    class Array: public Node {
+        public:
+            Node *elems;
+            Array(Node *_elems): Node(), elems(_elems) {
+                appendChild(elems);
             }
             virtual void accept(Visitor *v);
     };
@@ -156,18 +177,6 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class Function: public Node {
-        public:
-            Node *params, *body, *ret;
-            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
-                appendChild(params);
-                appendChild(body);
-                if (ret)
-                    appendChild(ret);
-            }
-            virtual void accept(Visitor *v);
-    };
-
     class ExprList: public Node {
         public:
             ExprList(): Node() { }
@@ -182,18 +191,14 @@ namespace ast {
 
     class Assign: public Node {
         public:
-            Node *lval, *rval;
-            int dups;
-            Assign(Node *_lval, Node *_rval): Node(), lval(_lval), rval(_rval), dups(0) {
-                if (Variable *v = dynamic_cast<Variable*>(lval))
-                    v->write = true;
-                if (Assign *a = dynamic_cast<Assign*>(rval))
-                    a->chain();
-                appendChild(lval);
-                appendChild(rval);
+            Node *expr;
+            NodeList vars;
+            Assign(Node *var, Node *_expr): Node(), expr(_expr) {
+                vars.push_back(var);
+                appendChild(expr);
+                appendChild(var);
             }
 
-            void chain() { if (Assign *a=dynamic_cast<Assign*>(rval)) a->chain(); else dups++; }
             virtual void accept(Visitor *v);
     };
 
@@ -247,16 +252,6 @@ namespace ast {
     class Continue: public Node {
         public:
             Continue(): Node() { }
-            virtual void accept(Visitor *v);
-    };
-
-    class Return: public Node {
-        public:
-            Node *e;
-            Return(Node *_e): Node(), e(_e) {
-                if (e)
-                    appendChild(e);
-            }
             virtual void accept(Visitor *v);
     };
 
@@ -414,24 +409,24 @@ namespace ast {
             virtual void visit(Real *) = 0;
             virtual void visit(String *) = 0;
             virtual void visit(Variable *) = 0;
-            virtual void visit(Binary *) = 0;
+            virtual void visit(Declaration *) = 0;
+            virtual void visit(Assign *) = 0;
+            virtual void visit(Call *) = 0;
+            virtual void visit(Return *) = 0;
             virtual void visit(Unary *) = 0;
+            virtual void visit(Binary *) = 0;
             virtual void visit(And *) = 0;
             virtual void visit(Or *) = 0;
-            virtual void visit(Array *) = 0;
-            virtual void visit(Call *) = 0;
-            virtual void visit(Subscript *) = 0;
-            virtual void visit(Expr *) = 0;
-            virtual void visit(Assign *) = 0;
             virtual void visit(IfElse *) = 0;
-            virtual void visit(For *) = 0;
             virtual void visit(While *) = 0;
             virtual void visit(Break *) = 0;
             virtual void visit(Continue *) = 0;
-            virtual void visit(Return *) = 0;
+            virtual void visit(For *) = 0;
+            virtual void visit(Array *) = 0;
+            virtual void visit(Subscript *) = 0;
+            virtual void visit(Expr *) = 0;
             virtual void visit(Function *) = 0;
             virtual void visit(TypeDecl *) = 0;
-            virtual void visit(Declaration *) = 0;
             virtual void visit(FuncDecl *) = 0;
             virtual void visit(TypeDeclList *) = 0;
             virtual void visit(UnionItem *) = 0;

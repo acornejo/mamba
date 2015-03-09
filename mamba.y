@@ -99,7 +99,7 @@ return_stmt: RETURN                                      { $$ = new ast::Return(
            ;
 
 assn_stmt: wexpr '=' expr                                { $$ = new ast::Assign($1, $3); }
-         | wexpr '=' assn_stmt                           { $$ = new ast::Assign($1, $3); }
+         | wexpr '=' assn_stmt                           { $$ = $3; ((ast::Assign*)$$)->vars.push_back($1); }
          ;
 
 decl_stmt: VAR IDENTIFIER '=' expr                       { $$ = new ast::Declaration($2, $4, NULL); }
