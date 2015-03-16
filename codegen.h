@@ -1,9 +1,26 @@
-typedef std::map<std::string, Expr*> env_t;
+#include "ast.h"
+#include <string>
+#include <map>
+#include <stack>
+#include <vector>
+#include <memory>
+#include <llvm/PassManager.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRbuilder.h>
+#include <llvm/Support/TargetSelect.h>
 
 using ::llvm::IRBuilder;
 using ::llvm::ExecutionEngine;
-using ::llvm::IRBuilder;
 using ::llvm::FunctionPassManager;
+using ::llvm::BasicBlock;
+using ::llvm::Module;
+using ::llvm::LLVMContext;
+using std::unique_ptr;
 
 struct Expr {
     std::string type_name;
@@ -11,7 +28,10 @@ struct Expr {
     llvm::Value *value;
 };
 
+typedef std::map<std::string, Expr*> env_t;
+
 class Codegen: public ast::Visitor {
+private:
     std::stack<Expr*> stack;
     std::vector<env_t> env;
     std::stack<BasicBlock*> continue_blocks;
@@ -22,26 +42,24 @@ class Codegen: public ast::Visitor {
     unique_ptr<IRBuilder<> > builder;
     unique_ptr<FunctionPassManager> pass_manager;
 
+public:
     Codegen():
-        module(unique_ptr<Module>(new Module("jit", llvm:getGlobalContext()))),
-        engine(unique_ptr<ExecutionEngine>(ExecutionEngine::createJIT(module))),
+        module(unique_ptr<Module>(new Module("jit", llvm::getGlobalContext()))),
+        engine(unique_ptr<ExecutionEngine>(ExecutionEngine::createJIT(module.get()))),
         builder(unique_ptr<IRBuilder<>>(new IRBuilder<>(module->getContext()))),
-        pass_manager(unique_ptr<FunctionPassManager>(new FunctionPassManager(module))) {
-        
-        pass_manager->add(new llvm::DataLayout(*engine->getDataLayout()));
+        pass_manager(unique_ptr<FunctionPassManager>(new FunctionPassManager(module.get()))) {
+
+        pass_manager->add(new llvm::DataLayoutPass(*engine->getDataLayout()));
         pass_manager->add(llvm::createBasicAliasAnalysisPass());
         pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
         pass_manager->add(llvm::createInstructionCombiningPass());
         pass_manager->add(llvm::createReassociatePass());
         pass_manager->add(llvm::createGVNPass());
         pass_manager->add(llvm::createCFGSimplificationPass());
-
         pass_manager->doInitialization();
     }
 
-    static init() {
-        llvm::InitializeNativeTarget();
-    }
+    static void init() { llvm::InitializeNativeTarget(); }
 
     void dump() {
         module->dump();
@@ -60,19 +78,24 @@ class Codegen: public ast::Visitor {
     virtual void visit(ast::True *v) {
         stack.push(new Expr("Bool", builder->getTrue()));
     }
+
     virtual void visit(ast::False *v) {
         stack.push(new Expr("Bool", builder->getFalse()));
 	}
+
     virtual void visit(ast::Integer *v) {
         stack.push(new Expr("Int", builder->getInt32(v->val)));
 	}
+
     virtual void visit(ast::Real *v) {
         stack.push(new Expr("Float", ConstantFP::get(builder->getContext(), v->val)));
 	}
+
     virtual void visit(ast::String *v) {
         Value *gs = builder->CreateGlobalString(v->val.c_str(), "globalstring");
         stack.push(new Expr("String", builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
 	}
+
     virtual void visit(ast::Variable *v) {
         Expr *L = getvar(*(v->val));
         if (L != nullptr) {
@@ -81,6 +104,7 @@ class Codegen: public ast::Visitor {
         } else
             error("variable %s not found!",v->val->c_str());
 	}
+
     virtual void visit(ast::Declaration *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
@@ -91,9 +115,9 @@ class Codegen: public ast::Visitor {
         AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
         builder->CreateStore(V->value, alloca);
 
-        env_t &e = env.back();
-        e.insert(std::make_pair(*(v->name), new Expr(V->type_name, alloca)));
+        env.back().insert(std::make_pair(*(v->name), new Expr(V->type_name, alloca)));
 	}
+
     virtual void visit(ast::Assign *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
@@ -112,35 +136,7 @@ class Codegen: public ast::Visitor {
             builder->CreateStore(R->value, L->value);
         }
 	}
-    virtual void visit(ast::Call *v) {
-        // TODO: get function
-        // TODO: match arguments against function
-        std::vector<Value*> arg_values;
 
-        for (auto &n: v->params.childNodes) {
-            n->accept(this);
-            assert(stack.size() >= 1);
-
-            Expr *V = stack.top();
-            stack.pop();
-            arg_values.push_back(V->values);
-        }
-
-        builder->CreateCall(callee_func, arg_values, "calltmp");
-	}
-    virtual void visit(ast::Return *v) {
-        if (v->e) {
-            v->e->accept(this);
-            assert(stack.size() >= 1);
-
-            Expr *V = stack.top();
-            stack.pop();
-
-            builder->CreateRet(V->value);
-        } else {
-            builder->CreateRetVoid();
-        }
-	}
     virtual void visit(ast::Unary *v) {
         v->down->accept(this);
         assert(stack.size() >= 1);
@@ -155,6 +151,7 @@ class Codegen: public ast::Visitor {
         assert(result != nullptr);
         stack.push(result);
 	}
+
     virtual void visit(ast::Binary *v) {
         v->left->accept(this);
         v->right->accept(this);
@@ -172,6 +169,7 @@ class Codegen: public ast::Visitor {
         assert(result != NULL);
         stack.push(result);
 	}
+
     virtual void visit(ast::And *v) {
         v->left->accept(this);
         v->right->accept(this);
@@ -203,6 +201,7 @@ class Codegen: public ast::Visitor {
         node->addIncoming(R->value, and_rhs);
         stack.push(new Expr("Bool", node));
 	}
+
     virtual void visit(ast::Or *v) {
         v->left->accept(this);
         v->right->accept(this);
@@ -234,6 +233,7 @@ class Codegen: public ast::Visitor {
         node->addIncoming(R->value, or_rhs);
         stack.push(new Expr("Bool", node));
 	}
+
     virtual void visit(ast::IfElse *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
@@ -242,6 +242,7 @@ class Codegen: public ast::Visitor {
         assert(cond->type_name == "Bool");
         stack.pop();
 
+        LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
         if (v->ifelse) {
             BasicBlock *if_true = BasicBlock::Create(ctx, "if_true", func);
@@ -270,6 +271,7 @@ class Codegen: public ast::Visitor {
             builder->SetInsertPoint(if_end);
         }
 	}
+
     virtual void visit(ast::While *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
@@ -278,6 +280,7 @@ class Codegen: public ast::Visitor {
         assert(cond->type_name == "Bool");
         stack.pop();
 
+        LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
         BasicBlock *while_start = BasicBlock::Create(ctx, "while_start", func);
         BasicBlock *while_body = BasicBlock::Create(ctx, "while_body", func);
@@ -297,29 +300,63 @@ class Codegen: public ast::Visitor {
         continue_blocks.pop();
         break_blocks.pop();
 	}
+
     virtual void visit(ast::Break *v) {
         assert(break_blocks.size() > 0);
         builder->CreateBr(break_block.top());
 	}
+
     virtual void visit(ast::Continue *v) {
         assert(continue_blocks.size() > 0);
         builder->CreateBr(break_block.top());
+        v ->
 	}
+
     virtual void visit(ast::For *v) {
 	}
+
+    virtual void visit(ast::Function *v) {
+	}
+
+    virtual void visit(ast::Return *v) {
+        if (v->e) {
+            v->e->accept(this);
+            assert(stack.size() >= 1);
+
+            Expr *V = stack.top();
+            stack.pop();
+
+            builder->CreateRet(V->value);
+        } else {
+            builder->CreateRetVoid();
+        }
+	}
+
+    virtual void visit(ast::Call *v) {
+        // TODO: get function
+        // TODO: match arguments against function
+        std::vector<Value*> arg_values;
+
+        for (auto &n: v->params.childNodes) {
+            n->accept(this);
+            assert(stack.size() >= 1);
+
+            Expr *V = stack.top();
+            stack.pop();
+            arg_values.push_back(V->values);
+        }
+
+        builder->CreateCall(callee_func, arg_values, "calltmp");
+	}
+
     virtual void visit(ast::Array *v) {
 	}
+
     virtual void visit(ast::Subscript *v) {
 	}
     virtual void visit(ast::Expr *v) {
 	}
-    virtual void visit(ast::Function *v) {
-	}
-    virtual void visit(ast::TypeDecl *v) {
-	}
     virtual void visit(ast::FuncDecl *v) {
-	}
-    virtual void visit(ast::TypeDeclList *v) {
 	}
     virtual void visit(ast::UnionItem *v) {
 	}
@@ -333,18 +370,11 @@ class Codegen: public ast::Visitor {
 	}
     virtual void visit(ast::StmtList *v) {
 	}
-    virtual void visit(ast::SimpleType *) {
-    }
-    virtual void visit(ast::ReferenceType *) {
-    }
-    virtual void visit(ast::PointerType *) {
-    }
-    virtual void visit(ast::ArrayType *) {
-    }
-    virtual void visit(ast::TupleType *) {
-    }
-    virtual void visit(ast::FuncType *) {
-    }
-    virtual void visit(ast::TypeList *) {
-    }
+    virtual void visit(ast::SimpleType *) { }
+    virtual void visit(ast::RefType *) { }
+    virtual void visit(ast::PtrType *) { }
+    virtual void visit(ast::ArrayType *) { }
+    virtual void visit(ast::TupleType *) { }
+    virtual void visit(ast::FuncType *) { }
+    virtual void visit(ast::TypeList *) { }
 };

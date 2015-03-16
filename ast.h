@@ -1,8 +1,8 @@
 #ifndef __AST_H__
 #define __AST_H__
 
-#include <vector>
 #include <map>
+#include <vector>
 #include <string>
 
 namespace ast {
@@ -31,6 +31,119 @@ namespace ast {
             void addString(std::string *);
             void extend(Node *);
     };
+
+    /*
+     * Type classes
+     */
+
+    class Type: public Node {
+        public:
+            virtual std::string type_name() const = 0;
+    };
+
+    class TypeList: public Type {
+        public:
+            std::vector<std::string*> names;
+            std::vector<Type*> types;
+            TypeList(): Type() { }
+            virtual void accept(Visitor *v);
+            void appendNamedChild(std::string *name, Type *type) {
+                names.push_back(name);
+                types.push_back(type);
+                addString(name);
+                appendChild(type);
+            }
+            virtual std::string type_name() const {
+                std::string ret = "";
+                if (!types.empty()) {
+                    for (size_t i = 0; i < types.size(); i++) {
+                        ret += types[i]->type_name();
+                        if (i+1 < types.size())
+                            ret += ",";
+                    }
+                }
+                return ret;
+            }
+    };
+
+    class SimpleType: public Type {
+        public:
+            std::string *tname;
+            SimpleType(std::string *_tname): Type(), tname(_tname) {
+                addString(tname);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return *tname;
+            }
+    };
+
+    class RefType: public Type {
+        public:
+            Type *base_type;
+            RefType(Type *_base_type): Type(), base_type(_base_type) {
+                appendChild(base_type);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "&" + base_type->type_name();
+            }
+    };
+
+    class PtrType: public Type {
+        public:
+            Type *base_type;
+            PtrType(Type *_base_type): Type(), base_type(_base_type) {
+                appendChild(base_type);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "*" + base_type->type_name();
+            }
+    };
+
+    class ArrayType: public Type {
+        public:
+            Type *base_type;
+            ArrayType(Type *_base_type): Type(), base_type(_base_type) {
+                appendChild(base_type);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "[" + base_type->type_name() + "]";
+            }
+    };
+
+    class TupleType: public Type {
+        public:
+            Type *base_type;
+            TupleType(Type *_base_type): Type(), base_type(_base_type) {
+                appendChild(base_type);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "(" + base_type->type_name() + ")";
+            }
+    };
+
+    class FuncType: public Type {
+        public:
+            TypeList *params;
+            Type *ret;
+            FuncType(TypeList *_params, Type *_ret): Type(), params(_params), ret(_ret) {
+                appendChild(params);
+                if (ret) appendChild(ret);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "(" + params->type_name() + ")->" + (ret ? ret->type_name() : "");
+            }
+    };
+
+
+    /*
+     * Literals
+     */
 
     class True: public Node {
         public:
@@ -66,6 +179,10 @@ namespace ast {
             }
             virtual void accept(Visitor *v);
     };
+
+    /*
+     * Expressions
+     */
 
     class Variable: public Node {
         public:
@@ -119,12 +236,11 @@ namespace ast {
 
     class Function: public Node {
         public:
-            Node *params, *body, *ret;
-            Function(Node* _params, Node *_body, Node *_ret): Node(), params(_params), body(_body), ret(_ret) {
-                appendChild(params);
+            FuncType *proto;
+            Node *body;
+            Function(FuncType *_proto, Node *_body): Node(), proto(_proto), body(_body) {
+                appendChild(proto);
                 appendChild(body);
-                if (ret)
-                    appendChild(ret);
             }
             virtual void accept(Visitor *v);
     };
@@ -255,81 +371,6 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class ReferenceType: public Node {
-        public:
-            Node *type_spec;
-            ReferenceType(Node *_type_spec): Node(), type_spec(_type_spec) {
-                appendChild(type_spec);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class PointerType: public Node {
-        public:
-            Node *type_spec;
-            PointerType(Node *_type_spec): Node(), type_spec(_type_spec) {
-                appendChild(type_spec);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class ArrayType: public Node {
-        public:
-            Node *type_spec;
-            size_t size;
-            ArrayType(Node *_type_spec, size_t _size): Node(), type_spec(_type_spec), size(_size) {
-                appendChild(type_spec);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class TupleType: public Node {
-        public:
-            Node *type_spec;
-            TupleType(Node *_type_spec): Node(), type_spec(_type_spec) {
-                appendChild(type_spec);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class FuncType: public Node {
-        public:
-            Node *in_types;
-            Node *out_type;
-            FuncType(Node *_in_types, Node *_out_type): Node(), in_types(_in_types), out_type(_out_type) {
-                appendChild(in_types);
-                if (out_type)
-                    appendChild(out_type);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class SimpleType: public Node {
-        public:
-            std::string *type_name;
-            SimpleType(std::string *_type_name): Node(), type_name(_type_name) {
-                addString(type_name);
-            }
-            virtual void accept(Visitor *v);
-    };
-
-    class TypeList: public Node {
-        public:
-            TypeList(): Node() { }
-            virtual void accept(Visitor *v);
-    };
-
-    class TypeDecl: public Node {
-        public:
-            Node *type_spec;
-            std::string *name;
-            TypeDecl(Node *_type_spec, std::string *_name): Node(), type_spec(_type_spec), name(_name) {
-                appendChild(type_spec);
-                addString(name);
-            }
-            virtual void accept(Visitor *v);
-    };
-
     class Declaration: public Node {
         public:
             std::string *name;
@@ -352,12 +393,6 @@ namespace ast {
                 addString(name);
                 appendChild(func);
             }
-            virtual void accept(Visitor *v);
-    };
-
-    class TypeDeclList: public Node {
-        public:
-            TypeDeclList(): Node() { }
             virtual void accept(Visitor *v);
     };
 
@@ -426,9 +461,7 @@ namespace ast {
             virtual void visit(Subscript *) = 0;
             virtual void visit(Expr *) = 0;
             virtual void visit(Function *) = 0;
-            virtual void visit(TypeDecl *) = 0;
             virtual void visit(FuncDecl *) = 0;
-            virtual void visit(TypeDeclList *) = 0;
             virtual void visit(UnionItem *) = 0;
             virtual void visit(UnionList *) = 0;
             virtual void visit(RecordDef *) = 0;
@@ -436,8 +469,8 @@ namespace ast {
             virtual void visit(ExprList *) = 0;
             virtual void visit(StmtList *) = 0;
             virtual void visit(SimpleType *) = 0;
-            virtual void visit(ReferenceType *) = 0;
-            virtual void visit(PointerType *) = 0;
+            virtual void visit(RefType *) = 0;
+            virtual void visit(PtrType *) = 0;
             virtual void visit(ArrayType *) = 0;
             virtual void visit(TupleType *) = 0;
             virtual void visit(FuncType *) = 0;

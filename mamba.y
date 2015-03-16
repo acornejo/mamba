@@ -23,6 +23,8 @@
     int token;
     std::string *string;
     ast::Node *node;
+    ast::TypeList *tlist;
+    ast::Type *type;
 }
 
 %token<string> IDENTIFIER STRING
@@ -52,7 +54,9 @@
 %right T_POW
 
 %type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr expr_list_ne expr_list array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_block record_suite record_stmt union_decl union_block union_suite union_stmt pointer_type array_type ref_type tuple_type func_type return_type type type_list type_list_ne type_decl type_decl_list
+%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr expr_list_ne expr_list array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<type> pointer_type array_type ref_type tuple_type func_type return_type type
+%type<tlist> record_block func_params type_list type_list_ne
 
 %start program
 
@@ -183,23 +187,20 @@ union_stmt:
     UNION IDENTIFIER ':' union_suite
     { $$ = new ast::UnionDef($2, $4); } ;
 
-record_block:
-    type_decl NEWLINE
-    { $$ = new ast::TypeDeclList(); $$->appendChild($1); } |
-
-    record_block type_decl NEWLINE
-    { $$ = $1; $1->appendChild($2); } ;
-
 record_suite:
     NEWLINE INDENT record_block DEDENT
     { $$ = $3; } ;
 
-union_decl:
-    IDENTIFIER
-    { $$ = new ast::UnionItem($1, NULL); } |
+record_block:
+    type IDENTIFIER NEWLINE
+    { $$ = new ast::TypeList(); $$->appendNamedChild($2, $1); } |
 
-    IDENTIFIER '(' type ')'
-    { $$ = new ast::UnionItem($1, $3); } ;
+    record_block type IDENTIFIER NEWLINE
+    { $$ = $1; $$->appendNamedChild($3, $2); } ;
+
+union_suite:
+    NEWLINE INDENT union_block DEDENT
+    { $$ = $3; } ;
 
 union_block:
     union_decl NEWLINE
@@ -208,24 +209,24 @@ union_block:
     union_block union_decl NEWLINE
     { $$ = $1; $1->appendChild($2); } ;
 
-union_suite:
-    NEWLINE INDENT union_block DEDENT
-    { $$ = $3; } ;
+union_decl:
+    IDENTIFIER
+    { $$ = new ast::UnionItem($1, NULL); } |
+
+    IDENTIFIER '(' type ')'
+    { $$ = new ast::UnionItem($1, $3); } ;
 
 pointer_type:
     '*' type
-    { $$ = new ast::PointerType($2); } ;
+    { $$ = new ast::PtrType($2); } ;
 
 array_type:
-    '[' ']' type
-    { $$ = new ast::ArrayType($3, -1); } |
-
-    '[' INTEGER ']' type
-    { $$ = new ast::ArrayType($4, $2); } ;
+    '[' type ']'
+    { $$ = new ast::ArrayType($2); } ;
 
 ref_type:
     '&' type
-    { $$ = new ast::ReferenceType($2); } ;
+    { $$ = new ast::RefType($2); } ;
 
 type_list:
     type
@@ -240,7 +241,6 @@ type_list_ne:
 
     type_list_ne ',' type
     { $$ = $1; $$->appendChild($3); } ;
-
 
 tuple_type:
     '(' type_list_ne ')'
@@ -279,23 +279,19 @@ type:
     func_type
     { $$ = $1; } ;
 
-type_decl:
+func_params:
     type IDENTIFIER
-    { $$ = new ast::TypeDecl($1, $2); } ;
+    { $$ = new ast::TypeList(); $$->appendNamedChild($2, $1); } |
 
-type_decl_list:
-    type_decl
-    { $$ = new ast::TypeDeclList(); $$->appendChild($1); } |
-
-    type_decl_list ',' type_decl
-    { $$ = $1; $1->appendChild($3); } ;
+    func_params ',' type IDENTIFIER
+    { $$ = $1; $$->appendNamedChild($4, $3); } ;
 
 func_expr:
     '|' '|' return_type ':' suite
-    { $$ = new ast::Function(new ast::TypeList(), $5, $3); } |
+    { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $3), $5); } |
 
-    '|' type_decl_list '|' return_type ':' suite
-    { $$ = new ast::Function($2, $6, $4); } ;
+    '|' func_params '|' return_type ':' suite
+    { $$ = new ast::Function(new ast::FuncType($2, $4), $6); } ;
 
 wexpr:
     IDENTIFIER
