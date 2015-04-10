@@ -247,9 +247,6 @@ tuple_type:
     { $$ = new ast::TupleType($2); } ;
 
 return_type:
-    T_ARROW '(' ')'
-    { $$ = NULL; } |
-
     T_ARROW type
     { $$ = $2; } ;
 

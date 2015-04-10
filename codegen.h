@@ -1,4 +1,5 @@
 #include "ast.h"
+#include <iostream>
 #include <string>
 #include <map>
 #include <stack>
@@ -20,12 +21,13 @@ using ::llvm::FunctionPassManager;
 using ::llvm::BasicBlock;
 using ::llvm::Module;
 using ::llvm::LLVMContext;
+using ::llvm::Value;
 using std::unique_ptr;
 
 struct Expr {
     std::string type_name;
-    llvm::Type *type;
-    llvm::Value *value;
+    ::llvm::Type *type;
+    Value *value;
 };
 
 typedef std::map<std::string, Expr*> env_t;
@@ -65,6 +67,10 @@ public:
         module->dump();
     }
 
+    void error(std::string msg) {
+        std::cout << msg << std::endl;
+    }
+
     Expr *getvar(std::string name) {
         for (auto it = env.rbegin(); it != env.rend(); ++it) {
             env_t &e = *it;
@@ -75,34 +81,38 @@ public:
         return nullptr;
     }
 
+    void addvar(std::string name, Expr *val) {
+        env.back().insert(std::make_pair(name, val));
+    }
+
     virtual void visit(ast::True *v) {
-        stack.push(new Expr("Bool", builder->getTrue()));
+        stack.push(new Expr("Bool", builder->getInt1Ty(), builder->getTrue()));
     }
 
     virtual void visit(ast::False *v) {
-        stack.push(new Expr("Bool", builder->getFalse()));
+        stack.push(new Expr("Bool", builder->getInt1Ty(), builder->getFalse()));
 	}
 
     virtual void visit(ast::Integer *v) {
-        stack.push(new Expr("Int", builder->getInt32(v->val)));
+        stack.push(new Expr("Int", builder->getInt32Ty(), builder->getInt32(v->val)));
 	}
 
     virtual void visit(ast::Real *v) {
-        stack.push(new Expr("Float", ConstantFP::get(builder->getContext(), v->val)));
+        stack.push(new Expr("Float", builder->getFloatTy(), ConstantFP::get(builder->getContext(), v->val)));
 	}
 
     virtual void visit(ast::String *v) {
         Value *gs = builder->CreateGlobalString(v->val.c_str(), "globalstring");
-        stack.push(new Expr("String", builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
+        stack.push(new Expr("String", builder->getInt8PtrTy(), builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
 	}
 
     virtual void visit(ast::Variable *v) {
         Expr *L = getvar(*(v->val));
         if (L != nullptr) {
-            Value *val = builder->CreateLoad(L->value, name);
-            stack.push(new Expr(L->type_name, val));
+            Value *val = builder->CreateLoad(L->value, *(v->val));
+            stack.push(new Expr(L->type_name, L->type, val));
         } else
-            error("variable %s not found!",v->val->c_str());
+            error("variable " + *v->val + " not found!");
 	}
 
     virtual void visit(ast::Declaration *v) {
@@ -112,10 +122,10 @@ public:
         Expr *V = stack.top();
         stack.pop();
 
-        AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
+        ::llvm::AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
         builder->CreateStore(V->value, alloca);
 
-        env.back().insert(std::make_pair(*(v->name), new Expr(V->type_name, alloca)));
+        addvar(*(v->name), new Expr(V->type_name, V->type, alloca));
 	}
 
     virtual void visit(ast::Assign *v) {
@@ -309,7 +319,6 @@ public:
     virtual void visit(ast::Continue *v) {
         assert(continue_blocks.size() > 0);
         builder->CreateBr(break_block.top());
-        v ->
 	}
 
     virtual void visit(ast::For *v) {

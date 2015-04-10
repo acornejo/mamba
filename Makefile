@@ -13,12 +13,12 @@ YACC := bison
 
 $(EXEC): $(OBJS)
 
-main.o: parser.h lexer.h
+main.o: parser.cc lexer.cc
 
-parser.cc parser.h: mamba.y
+parser.cc: mamba.y
 	$(YACC) mamba.y
 
-lexer.cc lexer.h: mamba.l parser.h
+lexer.cc: mamba.l parser.cc
 	$(LEX) -d mamba.l
 
 .PHONY: clean
