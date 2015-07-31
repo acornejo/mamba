@@ -3,20 +3,20 @@
 - Add casting operator (as)
 - Add interfaces
 - Add generics
-- Add macros
 - Add containers Map, Set, Vec, Deque, List, Stack, Queue, Heap
 - Add io
 - Add sockets
 - Add threads
+- Add macros
 
 # define type casting
 
-    let x = 1 as Float
+    var x = 1 as Float
 
 # type casting for interfaces too
 internally use two pointers, one for the object and the other for the vtable of the interface.
 
-    let c = Circle{radius=2.0} as Shape
+    var c = Circle{radius=2.0} as Shape
 
 # define how to move from stack to heap and back
 
@@ -27,12 +27,12 @@ declared, it is possible to use heap allocated variables instead.
 
 Declaring heap allocated variables in Mamba is very simple.
 
-    let p = *Point{x = 2.0, y = 2.0}
+    var p = *Point{x = 2.0, y = 2.0}
 
 Now if you want a second reference to a variable in the heap, you can
 simple declare another variable.
 
-    let q = p
+    var q = p
 
 The variables p and q now point to the same heap allocated Point record.
 Mamba will use reference counting to keep track of the number of
@@ -46,8 +46,8 @@ circular references its possible to use weak reference counting
 
 When you
 
-    let u = q.copyToHeap()
-    let v = p.copyToStack()
+    var u = q.copyToHeap()
+    var v = p.copyToStack()
 
 Both of these operations create a copy of the type that leaves in a
 different part of memory. For small objects this does not incur in
@@ -64,4 +64,4 @@ variable.
 
 # add support for tuple unpacking
 
-    let (x, y) = tupleReturningFunc()
+    var (x, y) = tupleReturningFunc()

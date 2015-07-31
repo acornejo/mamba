@@ -68,6 +68,7 @@ void Or::accept(Visitor *v) { v->visit(this); }
 void Array::accept(Visitor *v) { v->visit(this); }
 void Call::accept(Visitor *v) { v->visit(this); }
 void Subscript::accept(Visitor *v) { v->visit(this); }
+void Attribute::accept(Visitor *v) { v->visit(this); }
 void Expr::accept(Visitor *v) { v->visit(this); }
 void Assign::accept(Visitor *v) { v->visit(this); }
 void IfElse::accept(Visitor *v) { v->visit(this); }

@@ -84,6 +84,7 @@ string      L?\"(\\.|[^\\"])*\"
 "["             { paren_add(']'); return TK('['); }
 "]"             { paren_del(']'); return TK(']'); }
 ":"             { return TK(':'); }
+"."             { return TK('.'); }
 ","             { return TK(','); }
 ";"             { return TK(';'); }
 "="             { return TK('='); }

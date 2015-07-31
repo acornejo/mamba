@@ -4,8 +4,7 @@
 (i.e. UpperCamelCase).
 - Functions must have the first letter be non-capital, and can't have
 underscores (i.e. camelCase).
-- Variables can't have capitals but can have underscores (i.e.
-snake_case).
+- Variables can't have capitals but can have underscores (i.e. snake_case).
 - Constants are all capitals (i.e. CONSTANT)
 
 # POD Types
@@ -18,14 +17,12 @@ snake_case).
 - Byte
 - Str
 
-## Machine dependent
-Imem (Unt32 or Unt64 depending on the architecture)
-
-# Type aliases
+# Type aliases (machine dependent)
 - alias Byte Unt8
-- alias Int Int32
-- alias Unt Unt32
-- alias Float Float32
+- alias Int Int32 or Int64
+- alias Unt Unt32 or Unt64
+- alias Float Float32 or Float64
+- alias Imem Unt32 or Unt64
 
 # Variable declaration
 Variables must always be initialized when declared.
@@ -39,23 +36,33 @@ necessary to explicitly declare its type.
     var x = 3
     var y = 4.0
 
-Mamba does not perform any implicit type conversions. The `as` keyword can be used to perform explicit type conversions.
-
-The following example does *not* compile, since the variable is declared
-to have type `Float` but we are assigning it an integer.
+Mamba does not perform any implicit type conversions. Therefore the
+following example does *not* compile, since you can't store an integer
+in a variable declared as a floating point.
 
     var Float z = 50
 
-However, the either of the following will compile.
+However, either of the following will compile.
 
     var Float z = 50.0
     var Float z = 50 as Float
 
+The `as` keyword used above can be used to perform explicit type conversions.
+
 
 # Arrays
-    var x = [1, 2, 3, 4]
-    var []Int x = [1, 2, 3, 4]
-    var []Int x = [0 times 20]
+
+The following three declarations are equivalent, and they all declare
+`x` as an array of ten integers initialized to zero.
+
+    var [Int] x = [0, 0, 0, 0, 0, 0, 0, 0, 0 ,0,0]
+    var [Int] x = [0; 10]
+
+As with POD types, when possible mamba will infer the types from the
+context, hence the following declares an array of ten integers
+initialized to zero.
+
+    var x = [0; 10]
 
 # Tuples
 
@@ -76,6 +83,11 @@ a tuple in cases where mamba can infer it by the context. For instance,
   we could have declared `jane` as follows:
 
     var jane = ("Jane Austen", 41)
+
+# Dictionaries
+
+    var [Str: Str] dict = ["hello": "hola", "world": "mundo"]
+
 
 # Records
 
@@ -107,10 +119,10 @@ following will *not* work:
     var option = None
 
 This is because there isn't enough information to determine if option
-is of type `Mayba{Int}`, `Maybe{Str}`, etc. We can work around this by
+is of type `Mayba<Int>`, `Maybe<Str>`, etc. We can work around this by
 explicitly declaring the variable type. That is:
 
-    var Maybe{Int} option = None
+    var Maybe<Int> option = None
 
 
 # Function definitions
@@ -119,7 +131,7 @@ We already learned how to declare new custom variables and define
 variables. Functions definitions are similar.
 
 
-    fun dist |Point p, Point q| -> Float:
+    fun dist (Point p, Point q) -> Float:
         var x = p.x - q.x
         var y = p.y - q.y
         return sqrt(x*x + y*y)
@@ -132,7 +144,7 @@ variables. Functions definitions are similar.
 
 An alternative way of declaring the function dist would be as follows:
 
-    var dist = |Point p, Point q| -> Float:
+    var dist = (Point p, Point q) -> Float:
         var x = p.x - q.x
         var y = p.y - q.y
         return sqrt(x*x + y*y)
@@ -165,7 +177,7 @@ A variable is declared to be a reference by prepending its type with the `&`
 operator. They must be declared as references both in the function
 definition and during function invocation.
 
-    fun increment |&Int x| -> ():
+    fun increment (&Int x) -> None:
         x = x + 1
 
     var a = 1
@@ -182,75 +194,78 @@ type `Self` is a placeholder for whatever type implements the
 interface.
 
     iface Default:
-        fun default || -> Self
+        fun default () -> Self
 
 We can now implement the default constructor interface for the custom
 type Point as follows:
 
-    fun Point.default || -> Point:
+    fun Point.default () -> Point:
         return Point(x = 0.0, y = 0.0)
 
     var p = Point.default()
 
-Mamba doesn't provide inheritance between types or other traditional
-concepts in object oriented languages. However, most of the object
-oriented programming patterns (including modularization and
-polymorphism) can be achieved through the use of type interfaces. Below
-is a simple example of how to achieve the equivalent of having a class
-Rect and class Circle both inherit from a class Shape, and then use
-polymorphism to treat them both as the base class Shape.
+# Objected oriented programming without objects
+
+Mamba is NOT an object oriented language; as such concepts like
+inheritance are not available in the language.
+
+That being said, most of the object oriented programming patterns can be
+achieved within mamba through the use of interfaces. The minimal example
+below should illustrate how the some of the classic patterns in object
+oriented languages can be easily translated to Mamba.
+
+    interface Shape:
+        fun area (Shape) -> Float
+        fun perim (Shape) -> Float
+
+    fun Shape.descibe (Shape self):
+        print!("area is #{self.area()} and perimeter #{self.perim()})
 
     record Rect:
         Float width
         Float height
 
+    fun Rect.area (Rect self) -> Float:
+        return self.width*self.height
+
+    fun Rect.perim (Rect self) -> Float:
+        return self.width*2+self.height*2
+
     record Circle:
         Float radius
 
-    iface Shape:
-        fun area |Self| -> Float
-        fun perim |Self| -> Float
-
-    fun Rect.area |Rect self| -> Float:
-        return self.width*self.height
-
-    fun Rect.perim |Rect self| -> Float:
-        return self.width*2+self.height*2
-
-    fun Circle.area |Circle self| -> Float:
+    fun Circle.area (Circle self) -> Float:
         return math.PI*self.radius**2
 
-    fun Circle.perim |Circle self| -> Float:
+    fun Circle.perim (Circle self) -> Float:
         return 2*math.Pi*self.radius
-
-    fun print_shape |Shape shape|:
-        print!("area is #{shape.area()} and perimter #{shape.perim()}")
 
     var shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
 
     for shape in shape_list:
-        print_shape(shape)
+        shape.describe()
 
 # static element access checking for tuples and records
 
 On records you can always access existing members but you cannot access
 or create new members. In other words, records should not be confused
-with dictionaries or maps, for that purpose you can use a Map instead.
+with dictionaries (for that there are Maps).
 
     var p = Point.default()
 
     p.z = 3.0 # won't compile
 
 For tuples, you must always use an index whose values is known at
-compile time. If you want to index using values which are computed at
-runtime, then you should use arrays instead. By default there is bounds
-checking performed on arrays at runtime, although this can be disabled.
+compile time.
 
     var v = (1, "hi there)
     v[3] = 2.0 # won't compile
 
     v[i] = 4.0 # won't compile
 
+If you want to index using values which are computed at runtime, then
+you should use arrays instead. By default there is bounds checking
+performed on arrays at runtime, although this can be disabled.
 
 However, in almost all use cases its possible to use arrays through
 iterators, which avoid bounds checking without sacrificing safety.
@@ -279,7 +294,7 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    fun find_max |Int[] list| -> Maybe{Int}:
+    fun find_max (Int[] list) -> Maybe{Int}:
         var max = None
         for i in list:
             match max:
@@ -293,7 +308,7 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    fun find_max |Int[] list| -> Maybe{Int}:
+    fun find_max (Int[] list) -> Maybe{Int}:
         if list.length == 0:
             return None
         var max = list[0]
@@ -321,19 +336,19 @@ match inside the for loop with a single if outside the loop.
     var p = *Point(x=3.0, y=2.0)
 
 # Generic function definitions
-    fun max{T is Orderable}|T x, T y| -> T:
+    fun max<T is Orderable>(T x, T y) -> T:
         if x > y:
             return x
         else:
             return y
 
-    fun max{T is Orderable}|T x, T y| -> T:
+    fun max<T is Orderable>(T x, T y) -> T:
         if x > y:
             return y
         else:
             return x
 
-    fun swap{T is Copyable}|&T x, &T y| -> ():
+    fun swap<T is Copyable>(&T x, &T y) -> None:
         var t = x
         x = y
         y = t
@@ -345,16 +360,14 @@ match inside the for loop with a single if outside the loop.
 
 # Generic types and interfaces
 
-    record MapIterator{Key is Orderable, Val is Copyable}
-        MapEntry{Key,Val} data
-        Maybe{Self} next
+    record MapIterator <Key is Orderable, Val is Copyable>:
+        MapEntry <Key,Val> data
+        Maybe <Self> next
 
-    impl Iterator{T,V} for MapIterator{T,V}
-        fun next |Self &self| -> Maybe{T,V}
+    fun MapIterator.next <K,V> (&Self self) -> Maybe <Self>
 
-    record Map{Key is Orderable, Val is Copyable}:
-        MapEntry{Key,Val} test
+    record <Key is Orderable, Val is Copyable> Map:
+        MapEntry<Key,Val> test
 
-    impl Iterable{T,V} for Map:
-        fun iter |Self self| -> MapIterator{T,V}:
-            return MapIterator{T,V}(self)
+    fun <K,V> Map.iter (Self self) -> <K,V> MapIterator:
+        return MapIterator <K,V> (self)

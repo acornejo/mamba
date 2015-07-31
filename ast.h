@@ -284,6 +284,18 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
+    class Attribute: public Node {
+        public:
+            Node *var;
+            std::string *aname;
+            Attribute(Node *_var, std::string *_aname): Node (), var(_var), aname(_aname) {
+                addString(aname);
+                appendChild(var);
+            }
+            virtual void accept(Visitor *v);
+    };
+
+
     class Expr: public Node {
         public:
             Node *e;
@@ -340,7 +352,7 @@ namespace ast {
     class For: public Loop {
         public:
             std::string *vname;
-            Node *var, *iterable, *body;
+            Node *iterable, *body;
             For(std::string *_vname, Node *_iterable, Node *_body): Loop(), vname(_vname), iterable(_iterable), body(_body) {
                 addString(vname);
                 appendChild(iterable);
@@ -459,6 +471,7 @@ namespace ast {
             virtual void visit(For *) = 0;
             virtual void visit(Array *) = 0;
             virtual void visit(Subscript *) = 0;
+            virtual void visit(Attribute*) = 0;
             virtual void visit(Expr *) = 0;
             virtual void visit(Function *) = 0;
             virtual void visit(FuncDecl *) = 0;

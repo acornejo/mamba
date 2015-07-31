@@ -22,11 +22,12 @@ using ::llvm::BasicBlock;
 using ::llvm::Module;
 using ::llvm::LLVMContext;
 using ::llvm::Value;
+using ::llvm::Type;
 using std::unique_ptr;
 
 struct Expr {
     std::string type_name;
-    ::llvm::Type *type;
+    Type *type;
     Value *value;
 };
 
@@ -83,6 +84,14 @@ public:
 
     void addvar(std::string name, Expr *val) {
         env.back().insert(std::make_pair(name, val));
+    }
+
+    void push_scope() {
+        env.push_back(env_t());
+    }
+
+    void pop_scope() {
+        env.pop_back();
     }
 
     virtual void visit(ast::True *v) {
@@ -154,10 +163,7 @@ public:
         Expr *V = stack.top();
         stack.pop();
 
-        Env *env = Env::byname(V->type_name);
-        assert(env != nullptr);
-        assert(env->has_function(v->op, {V->type_name}));
-        Expr *result = env->apply_function(v->op, {V});
+        Expr *result = applystaticmethod(V, v->opname, {V});
         assert(result != nullptr);
         stack.push(result);
 	}
@@ -172,11 +178,8 @@ public:
         Expr *L = stack.top();
         stack.pop();
 
-        Env *env = Env::byname(R->type_name);
-        assert(env != NULL);
-        assert(env->has_function(v->op, {R->type_name, L->type_name}));
-        Expr *result = env->apply_function(v->op, {R, L});
-        assert(result != NULL);
+        Expr *result = applystaticmethod(R, v->opname, {R, L});
+        assert(result != nullptr);
         stack.push(result);
 	}
 
@@ -209,7 +212,7 @@ public:
         PHINode *node = builder->CreatePHI(builder->getInt1Ty(), 2, "and_tmp");
         node->addIncoming(L->value, and_lhs);
         node->addIncoming(R->value, and_rhs);
-        stack.push(new Expr("Bool", node));
+        stack.push(new Expr("Bool", builder->getInt1Ty(), node));
 	}
 
     virtual void visit(ast::Or *v) {
@@ -241,7 +244,7 @@ public:
         PHINode *node = builder->CreatePHI(builder->getInt1Ty(), 2, "or_tmp");
         node->addIncoming(L->value, or_lhs);
         node->addIncoming(R->value, or_rhs);
-        stack.push(new Expr("Bool", node));
+        stack.push(new Expr("Bool", builder->getInt1Ty(), node));
 	}
 
     virtual void visit(ast::IfElse *v) {
@@ -261,11 +264,15 @@ public:
             builder->CreateCondBr(cond->value, if_true, if_false);
 
             builder->SetInsertPoint(if_true);
+            push_scope();
             v->body->accept(this);
+            pop_scope();
             builder->CreateBr(if_end);
 
             builder->SetInsertPoint(if_false);
+            push_scope();
             v->ifelse->accept(this);
+            pop_scope();
             builder->CreateBr(if_end);
 
             builder->SetInsertPoint(if_end);
@@ -275,7 +282,9 @@ public:
             builder->CreateCondBr(cond->value, if_true, if_end);
 
             builder->SetInsertPoint(if_true);
+            push_scope();
             v->body->accept(this);
+            pop_scope();
             builder->CreateBr(if_end);
 
             builder->SetInsertPoint(if_end);
@@ -303,12 +312,66 @@ public:
         builder->CreateCondBr(cond->value, while_body, while_end);
 
         builder->SetInsertPoint(while_body);
+        push_scope();
         v->body->accept(this);
+        pop_scope()
         builder->CreateBr(while_start);
 
         builder->SetInsertPoint(while_end);
         continue_blocks.pop();
         break_blocks.pop();
+	}
+
+    virtual void visit(ast::For *v) {
+        if (getvar(*(v->vname))) {
+            error("variable " + *v->vname + " is shadowed in for loop");
+            return;
+        }
+
+        v->iterable->accept(this);
+        assert(stack.size() >= 1);
+        Expr *iterable = stack.top();
+
+        Expr *iter = applymethod(iterable, "iter");
+        assert(iter != nullptr);
+        assert(hasmethod(iter, "hasNext"));
+        assert(hasmethod(iter, "next"));
+
+        push_scope();
+
+        // TODO: fix this, need the correct type
+        Str type_name = get_str_type_of_element_being_iterated;
+        Type *type = get_llvm_type_of_element_being_iterated;
+        ::llvm::AllocaInst *alloca = builder->CreateAlloca(type, 0, v->vname->c_str());
+        addvar(*(v->vname), new Expr(type_name, type, alloca));
+
+        LLVMContext &ctx = builder->getContext();
+        Function *func = builder->GetInsertBlock()->getParent();
+        BasicBlock *for_start = BasicBlock::Create(ctx, "for_start", func);
+        BasicBlock *for_body = BasicBlock::Create(ctx, "for_body", func);
+        BasicBlock *for_end = BasicBlock::Create(ctx, "for_end", func);
+
+        continue_blocks.push(for_start);
+        break_blocks.push(for_end);
+
+        builder->SetInsertPoint(for_start);
+        Expr *has_next = applymethod(iter, "hasNext");
+        assert(has_next != nullptr);
+        assert(has_next->type_name == "Bool");
+        builder->CreateCondBr(has_next->value, for_body, for_end);
+
+        builder->SetInsertPoint(for_body);
+        // TODO: fix this, next returns Maybe{T}, must unwrap
+        Expr *next = applymethod(iter, "next");
+        assert(next != nullptr);
+        builder->CreateStore(next->value, alloca);
+        v->body->accept(this);
+        builder->CreateBr(for_start);
+
+        builder->SetInsertPoint(for_end);
+        continue_blocks.pop();
+        break_blocks.pop();
+        pop_scope();
 	}
 
     virtual void visit(ast::Break *v) {
@@ -319,9 +382,6 @@ public:
     virtual void visit(ast::Continue *v) {
         assert(continue_blocks.size() > 0);
         builder->CreateBr(break_block.top());
-	}
-
-    virtual void visit(ast::For *v) {
 	}
 
     virtual void visit(ast::Function *v) {
@@ -335,6 +395,7 @@ public:
             Expr *V = stack.top();
             stack.pop();
 
+            // TODO: check that return type matches function signature
             builder->CreateRet(V->value);
         } else {
             builder->CreateRetVoid();

@@ -27,36 +27,50 @@
     ast::Type *type;
 }
 
+%nonassoc '('
+%nonassoc '['
+%left '.'
+%right NOT
+%right T_BITNEG
+%left OR
+%left AND
+%left T_LT
+%left T_GT
+%left T_LE
+%left T_GE
+%left T_EQ
+%left T_NE
+%left T_BITOR
+%left T_BITAND
+%left T_BITXOR
+%left T_LSHIFT
+%left T_RSHIFT
+%left T_ADD
+%left T_SUB
+%left T_MUL
+%left T_DIV
+%left T_MOD
+%left T_POW
+
 %token<string> IDENTIFIER STRING
 %token<real> REAL
 %token<integer> INTEGER
 %token<token> INDENT DEDENT NEWLINE
-%token<token> T_LT T_LE T_GT T_GE T_EQ T_NE
-%token<token> T_ADD T_SUB T_MUL T_DIV T_MOD T_POW
-%token<token> T_LSHIFT T_RSHIFT T_BITAND T_BITOR T_BITXOR T_BITNEG T_ARROW T_ELLIPSIS
-%token<token> VAR FUN FALSE TRUE RECORD UNION OR AND NOT IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
+%token<token> T_ARROW T_ELLIPSIS
+%token<token> VAR FUN FALSE TRUE RECORD UNION IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
+
+%token<token> NOT T_BITNEG OR AND T_LT T_GT T_LE T_GE T_EQ T_NE T_BITOR T_BITAND T_BITXOR T_LSHIFT T_RSHIFT T_ADD T_SUB T_MUL T_DIV T_MOD T_POW
 
 /* Clean up memory in case of error */
 %destructor { delete $$; } <node>
 %destructor { delete $$; } IDENTIFIER
 %destructor { delete $$; } STRING
 
-%left OR
-%left AND
-%right NOT
-%left T_LE T_GE T_EQ T_NE
-%left T_BITXOR
-%left T_BITAND
-%left T_LSHIFT T_RSHIFT
-%left T_SUB
-%left T_MUL T_DIV T_MOD
-%right T_BITNEG
-%right T_POW
 
-%type<token> cmp_op bitshift_op arith_op term_op
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt func_expr expr_list_ne expr_list array_expr call_expr subs_expr wexpr expr sexpr not_expr and_expr comp_expr bitor_expr bitand_expr bitxor_expr bitshift_expr arith_expr term_expr power_expr record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<node> func_expr expr_list_ne expr_list expr
 %type<type> pointer_type array_type ref_type tuple_type func_type return_type type
-%type<tlist> record_block func_params type_list type_list_ne
+%type<tlist> record_block func_params type_list 
 
 %start program
 
@@ -140,10 +154,10 @@ return_stmt:
     { $$ = new ast::Return($2); } ;
 
 assn_stmt:
-    wexpr '=' expr
+    expr '=' expr
     { $$ = new ast::Assign($1, $3); } |
 
-    wexpr '=' assn_stmt
+    expr '=' assn_stmt
     { $$ = $3; ((ast::Assign*)$$)->vars.push_back($1); } ;
 
 decl_stmt:
@@ -235,15 +249,8 @@ type_list:
     type_list ',' type
     { $$ = $1; $$->appendChild($3); } ;
 
-type_list_ne:
-    type ',' type
-    { $$ = new ast::TypeList(); $$->appendChild($1); $$->appendChild($3); } |
-
-    type_list_ne ',' type
-    { $$ = $1; $$->appendChild($3); } ;
-
 tuple_type:
-    '(' type_list_ne ')'
+    '(' type_list ')'
     { $$ = new ast::TupleType($2); } ;
 
 return_type:
@@ -251,10 +258,10 @@ return_type:
     { $$ = $2; } ;
 
 func_type:
-    '|' '|' return_type
+    '(' ')' return_type
     { $$ = new ast::FuncType(new ast::TypeList(), $3); } |
 
-    '|' type_list '|' return_type
+    '(' type_list ')' return_type
     { $$ = new ast::FuncType($2, $4); } ;
 
 type:
@@ -284,18 +291,11 @@ func_params:
     { $$ = $1; $$->appendNamedChild($4, $3); } ;
 
 func_expr:
-    '|' '|' return_type ':' suite
+    '(' ')' return_type ':' suite
     { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $3), $5); } |
 
-    '|' func_params '|' return_type ':' suite
+    '(' func_params ')' return_type ':' suite
     { $$ = new ast::Function(new ast::FuncType($2, $4), $6); } ;
-
-wexpr:
-    IDENTIFIER
-    { $$ = new ast::Variable($1); } |
-
-    IDENTIFIER '[' expr ']'
-    { $$ = new ast::Subscript(new ast::Variable($1), $3); } ;
 
 expr_list_ne:
     expr
@@ -304,7 +304,6 @@ expr_list_ne:
     expr_list_ne ',' expr
     { $$ = $1; $1->appendChild($3); } ;
 
-
 expr_list:
     %empty
     { $$ = new ast::ExprList(); } |
@@ -312,174 +311,85 @@ expr_list:
     expr_list_ne
     { $$ = $1; } ;
 
-array_expr:
-    '[' expr_list_ne ']'
-    { $$ = new ast::Array($2); } ;
-
-call_expr:
-    IDENTIFIER '(' expr_list ')'
-    { $$ = new ast::Call(new ast::Variable($1), $3); } |
-
-    call_expr '(' expr_list ')'
-    { $$ = new ast::Call($1, $3); } ;
-
-subs_expr:
-    IDENTIFIER '[' expr ']'
-    { $$ = new ast::Subscript(new ast::Variable($1), $3); } |
-
-    array_expr '[' expr ']'
-    { $$ = new ast::Subscript($1, $3); } |
-
-    call_expr '[' expr ']'
-    { $$ = new ast::Subscript($1, $3); } |
-
-    subs_expr '[' expr ']'
-    { $$ = new ast::Subscript($1, $3); } ;
 
 expr:
-    and_expr
-    { $$ = $1; } |
+    NOT expr
+    { $$ = new ast::Unary($1, $2); } |
 
-    expr OR and_expr
-    { $$ = new ast::Or($1, $3); } ;
+    T_BITNEG expr
+    { $$ = new ast::Unary($1, $2); } |
 
-and_expr:
-    not_expr
-    { $$ = $1; } |
+    expr AND expr
+    { $$ = new ast::And($1, $3); } |
 
-    and_expr AND not_expr
-    { $$ = new ast::And($1, $3); } ;
+    expr OR expr
+    { $$ = new ast::Or($1, $3); } |
 
-not_expr:
-    comp_expr
-    { $$ = $1; } |
+    expr T_LT expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    NOT comp_expr
-    { $$ = new ast::Unary($1, $2); } ;
+    expr T_GT expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-cmp_op:
-    '<'
-    { $$ = T_LT; } |
+    expr T_LE expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    '>'
-    { $$ = T_GT; } |
+    expr T_GE expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    T_LE
-    { $$ = $1; } |
+    expr T_EQ expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    T_GE
-    { $$ = $1; } |
+    expr T_NE expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    T_EQ
-    { $$ = $1; } |
+    expr T_BITAND expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    T_NE
-    { $$ = $1; } ;
+    expr T_BITOR expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-comp_expr:
-    bitor_expr
-    { $$ = $1; } |
+    expr T_BITXOR expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    comp_expr cmp_op bitor_expr
-    { $$ = new ast::Binary($2, $1, $3); } ;
+    expr T_LSHIFT expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-bitor_expr:
-    bitxor_expr
-    { $$ = $1; } |
+    expr T_RSHIFT expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    bitor_expr '|' bitxor_expr
-    { $$ = new ast::Binary(T_BITOR, $1, $3); } ;
+    expr T_ADD expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-bitxor_expr:
-    bitand_expr
-    { $$ = $1; } |
+    expr T_SUB expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    bitxor_expr '^' bitand_expr
-    { $$ = new ast::Binary(T_BITXOR, $1, $3); } ;
+    expr T_MUL expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-bitand_expr:
-    bitshift_expr
-    { $$ = $1; } |
+    expr T_DIV expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-    bitand_expr '&' bitshift_expr
-    { $$ = new ast::Binary(T_BITAND, $1, $3); } ;
+    expr T_MOD expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
-bitshift_op:
-    T_LSHIFT
-    { $$ = $1; } |
-
-    T_RSHIFT
-    { $$ = $1; } ;
-
-bitshift_expr:
-    arith_expr
-    { $$ = $1; } |
-
-    bitshift_expr bitshift_op arith_expr
-    { $$ = new ast::Binary($2, $1, $3); } ;
-
-arith_op:
-    '+'
-    { $$ = T_ADD; } |
-
-    '-'
-    { $$ = T_SUB; } ;
-
-arith_expr:
-    term_expr
-    { $$ = $1; } |
-
-    arith_expr arith_op term_expr
-    { $$ = new ast::Binary($2, $1, $3); } ;
-
-term_op:
-    '*'
-    { $$ = T_MUL; } |
-
-    '/'
-    { $$ = T_DIV; } |
-
-    '%'
-    { $$ = T_MOD; } ;
-
-term_expr:
-    power_expr
-    { $$ = $1; } |
-
-    term_expr term_op power_expr
-    { $$ = new ast::Binary($2, $1, $3); } ;
-
-power_expr:
-    sexpr
-    { $$ = $1; } |
-
-    power_expr T_POW sexpr
-    { $$ = new ast::Binary($2, $1, $3); } ;
-
-sexpr:
-    '+' sexpr %prec T_BITNEG
-    { $$ = new ast::Unary(T_ADD, $2); } |
-
-    '-' sexpr %prec T_BITNEG
-    { $$ = new ast::Unary(T_SUB, $2); } |
-
-    T_BITNEG sexpr
-    { $$ = new ast::Unary(T_BITNEG, $2); } |
+    expr T_POW expr
+    { $$ = new ast::Binary($2, $1, $3); } |
 
     '(' expr ')'
     { $$ = $2; } |
 
-    array_expr
-    { $$ = $1; } |
+    '[' expr_list_ne ']'
+    { $$ = new ast::Array($2); } |
 
-    call_expr
-    { $$ = $1; } |
+    expr '(' expr_list ')'
+    { $$ = new ast::Call($1, $3); } |
 
-    subs_expr
-    { $$ = $1; } |
+    expr '[' expr ']'
+    { $$ = new ast::Subscript($1, $3); } |
 
-    func_expr
-    { $$ = $1; } |
+    expr '.' IDENTIFIER
+    { $$ = new ast::Attribute($1, $3); } |
 
     TRUE
     { $$ = new ast::True(); } |
@@ -498,4 +408,5 @@ sexpr:
 
     IDENTIFIER
     { $$ = new ast::Variable($1); } ;
+
 %%

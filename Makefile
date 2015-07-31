@@ -5,11 +5,11 @@ OBJS := ${SRCS:.cc=.o} lexer.o parser.o
 DEPS := ${SRCS:.cc=.d}
 
 CC := g++ -g
-LLVMFLAGS := -I/usr/local/Cellar/llvm/3.5.0/include -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
+LLVMFLAGS := $(shell llvm-config --cflags)
 CPPFLAGS := $(LLVMFLAGS)
 OUTPUT_OPTION=-g -MMD -MP -Wall -o $@
 LEX := flex
-YACC := bison
+YACC := bison -r all
 
 $(EXEC): $(OBJS)
 
