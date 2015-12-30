@@ -383,12 +383,12 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class Declaration: public Node {
+    class VarDecl: public Node {
         public:
             std::string *name;
             Node *expr;
             Node *type_spec;
-            Declaration(std::string *_name, Node *_expr, Node *_type_spec): Node(), name(_name), expr(_expr), type_spec(_type_spec) {
+            VarDecl(std::string *_name, Node *_expr, Node *_type_spec): Node(), name(_name), expr(_expr), type_spec(_type_spec) {
                 addString(name);
                 appendChild(expr);
                 if (type_spec)
@@ -456,10 +456,8 @@ namespace ast {
             virtual void visit(Real *) = 0;
             virtual void visit(String *) = 0;
             virtual void visit(Variable *) = 0;
-            virtual void visit(Declaration *) = 0;
+            virtual void visit(VarDecl *) = 0;
             virtual void visit(Assign *) = 0;
-            virtual void visit(Call *) = 0;
-            virtual void visit(Return *) = 0;
             virtual void visit(Unary *) = 0;
             virtual void visit(Binary *) = 0;
             virtual void visit(And *) = 0;
@@ -468,13 +466,15 @@ namespace ast {
             virtual void visit(While *) = 0;
             virtual void visit(Break *) = 0;
             virtual void visit(Continue *) = 0;
+            virtual void visit(Return *) = 0;
             virtual void visit(For *) = 0;
+            virtual void visit(Function *) = 0;
+            virtual void visit(FuncDecl *) = 0;
+            virtual void visit(Call *) = 0;
             virtual void visit(Array *) = 0;
             virtual void visit(Subscript *) = 0;
             virtual void visit(Attribute*) = 0;
             virtual void visit(Expr *) = 0;
-            virtual void visit(Function *) = 0;
-            virtual void visit(FuncDecl *) = 0;
             virtual void visit(UnionItem *) = 0;
             virtual void visit(UnionList *) = 0;
             virtual void visit(RecordDef *) = 0;

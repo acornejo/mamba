@@ -1,0 +1,5 @@
+- no arrays
+- no tuples
+- no structs
+- no closures
+- no heap allocated objects

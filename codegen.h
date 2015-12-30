@@ -23,6 +23,7 @@ using ::llvm::Module;
 using ::llvm::LLVMContext;
 using ::llvm::Value;
 using ::llvm::Type;
+using ::llvm::AllocaInst;
 using std::unique_ptr;
 
 struct Expr {
@@ -39,6 +40,9 @@ private:
     std::vector<env_t> env;
     std::stack<BasicBlock*> continue_blocks;
     std::stack<BasicBlock*> break_blocks;
+    Type *boolType;
+    Type *intType;
+    Type *floatType;
 
     unique_ptr<Module> module;
     unique_ptr<ExecutionEngine> engine;
@@ -60,6 +64,10 @@ public:
         pass_manager->add(llvm::createGVNPass());
         pass_manager->add(llvm::createCFGSimplificationPass());
         pass_manager->doInitialization();
+
+        boolType = builder->getInt1Ty();
+        intType = builder->getInt32Ty();
+        floatType = builder->getFloatTy();
     }
 
     static void init() { llvm::InitializeNativeTarget(); }
@@ -95,19 +103,19 @@ public:
     }
 
     virtual void visit(ast::True *v) {
-        stack.push(new Expr("Bool", builder->getInt1Ty(), builder->getTrue()));
+        stack.push(new Expr("Bool", boolType, builder->getTrue()));
     }
 
     virtual void visit(ast::False *v) {
-        stack.push(new Expr("Bool", builder->getInt1Ty(), builder->getFalse()));
+        stack.push(new Expr("Bool", boolType, builder->getFalse()));
 	}
 
     virtual void visit(ast::Integer *v) {
-        stack.push(new Expr("Int", builder->getInt32Ty(), builder->getInt32(v->val)));
+        stack.push(new Expr("Int", intType, builder->getInt32(v->val)));
 	}
 
     virtual void visit(ast::Real *v) {
-        stack.push(new Expr("Float", builder->getFloatTy(), ConstantFP::get(builder->getContext(), v->val)));
+        stack.push(new Expr("Float", floatType, ConstantFP::get(builder->getContext(), v->val)));
 	}
 
     virtual void visit(ast::String *v) {
@@ -124,30 +132,36 @@ public:
             error("variable " + *v->val + " not found!");
 	}
 
-    virtual void visit(ast::Declaration *v) {
+    virtual void visit(ast::VarDecl *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
-
         Expr *V = stack.top();
         stack.pop();
 
-        ::llvm::AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
+        AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
         builder->CreateStore(V->value, alloca);
 
         addvar(*(v->name), new Expr(V->type_name, V->type, alloca));
 	}
 
+    virtual void visit(ast::FuncDecl *v) {
+        v->func->accept(this);
+        assert(stack.size() >= 1);
+        Expr *V = stack.top();
+        stack.pop();
+
+        addfun(*(v->name), V);
+    }
+
     virtual void visit(ast::Assign *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
-
         Expr *R = stack.top();
         stack.pop();
 
-        for (auto &n : v->vars) {
-            n->accept(this);
+        for (auto &var : v->vars) {
+            var->accept(this);
             assert(stack.size() >= 1);
-
             Expr *L = stack.top();
             stack.pop();
 
@@ -159,13 +173,27 @@ public:
     virtual void visit(ast::Unary *v) {
         v->down->accept(this);
         assert(stack.size() >= 1);
-
         Expr *V = stack.top();
         stack.pop();
 
+        if (V->type_name == "Int" && method_name == "~") {
+            Value *R = builder->CreateXOR(V->value, IntNot, "nottmp");
+            stack.push(new Expr(V->type_name, intType, R);
+            return;
+        }
+
+        if (V->type_name == "Bool" && method_name == "not") {
+            Value *R = builder->CreateNot(V->value, "nottmp");
+            stack.push(new Expr(V->type_name, boolType, R));
+            return;
+        }
+
+        error("unsuported operation " + v ->opname);
+        // TODO: implement static method
+        /*
         Expr *result = applystaticmethod(V, v->opname, {V});
         assert(result != nullptr);
-        stack.push(result);
+        stack.push(result);*/
 	}
 
     virtual void visit(ast::Binary *v) {
@@ -178,9 +206,130 @@ public:
         Expr *L = stack.top();
         stack.pop();
 
+        // TODO: missing POW (**) operator
+        if (R->type_name == "Int" && L->type_name == "Int") {
+            if (v->opname == "+") {
+                Value *res = builder->CreateAdd(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "-")
+                Value *res = builder->CreateSub(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "*")
+                Value *res = builder->CreateMul(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "/")
+                Value *res = builder->CreateSDiv(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "%")
+                Value *res = builder->CreateRem(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "&")
+                Value *res = builder->CreateAnd(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "|")
+                Value *res = builder->CreateOr(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "^")
+                Value *res = builder->CreateXor(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "<<")
+                Value *res = builder->CreateShl(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == ">>")
+                Value *res = builder->CreateShr(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "<")
+                Value *res = builder->CreateICmpSLT(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "<=")
+                Value *res = builder->CreateICmpSLE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == ">")
+                Value *res = builder->CreateICmpSGT(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == ">=")
+                Value *res = builder->CreateICmpSGE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "==")
+                Value *res = builder->CreateICmpEQ(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "!=")
+                Value *res = builder->CreateICmpNE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            }
+        }
+
+        if (R->type_name == "Float" && L->type_name == "Float") {
+            if (v->opname == "+") {
+                Value *res = builder->CreateFAdd(L->value, R->value);
+                stack.push(new Expr(R->type_name, floatType, res));
+                return;
+            } else if (v->opname == "-") {
+                Value *res = builder->CreateFSub(L->value, R->value);
+                stack.push(new Expr(R->type_name, floatType, res));
+                return;
+            } else if (v->opname == "*") {
+                Value *res = builder->CreateFMul(L->value, R->value);
+                stack.push(new Expr(R->type_name, floatType, res));
+                return;
+            } else if (v->opname == "/") {
+                Value *res = builder->CreateFDiv(L->value, R->value);
+                stack.push(new Expr(R->type_name, floatType, res));
+                return;
+            } else if (v->opname == "%") {
+                Value *res = builder->CreateFRem(L->value, R->value);
+                stack.push(new Expr(R->type_name, floatType, res));
+                return;
+            } else if (v->opname == "<")
+                Value *res = builder->CreateFCmpOLT(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "<=")
+                Value *res = builder->CreateFCmpOLE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == ">")
+                Value *res = builder->CreateFCmpOGT(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == ">=")
+                Value *res = builder->CreateFCmpOGE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "==")
+                Value *res = builder->CreateFCmpOEQ(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            } else if (v->opname == "!=")
+                Value *res = builder->CreateFCmpONE(L->value, R->value);
+                stack.push(new Expr(R->type_name, intType, res));
+                return;
+            }
+        }
+
+        error("unsuported operation " + v ->opname);
+        // TODO: implement apply static methods
+        /*
         Expr *result = applystaticmethod(R, v->opname, {R, L});
         assert(result != nullptr);
         stack.push(result);
+        */
 	}
 
     virtual void visit(ast::And *v) {
@@ -209,10 +358,10 @@ public:
         builder->CreateBr(and_end);
 
         builder->SetInsertPoint(and_end);
-        PHINode *node = builder->CreatePHI(builder->getInt1Ty(), 2, "and_tmp");
+        PHINode *node = builder->CreatePHI(boolType, 2, "and_tmp");
         node->addIncoming(L->value, and_lhs);
         node->addIncoming(R->value, and_rhs);
-        stack.push(new Expr("Bool", builder->getInt1Ty(), node));
+        stack.push(new Expr("Bool", boolType, node));
 	}
 
     virtual void visit(ast::Or *v) {
@@ -241,10 +390,10 @@ public:
         builder->CreateBr(or_end);
 
         builder->SetInsertPoint(or_end);
-        PHINode *node = builder->CreatePHI(builder->getInt1Ty(), 2, "or_tmp");
+        PHINode *node = builder->CreatePHI(boolType, 2, "or_tmp");
         node->addIncoming(L->value, or_lhs);
         node->addIncoming(R->value, or_rhs);
-        stack.push(new Expr("Bool", builder->getInt1Ty(), node));
+        stack.push(new Expr("Bool", boolType, node));
 	}
 
     virtual void visit(ast::IfElse *v) {
@@ -332,6 +481,7 @@ public:
         assert(stack.size() >= 1);
         Expr *iterable = stack.top();
 
+#if 0
         Expr *iter = applymethod(iterable, "iter");
         assert(iter != nullptr);
         assert(hasmethod(iter, "hasNext"));
@@ -342,7 +492,7 @@ public:
         // TODO: fix this, need the correct type
         Str type_name = get_str_type_of_element_being_iterated;
         Type *type = get_llvm_type_of_element_being_iterated;
-        ::llvm::AllocaInst *alloca = builder->CreateAlloca(type, 0, v->vname->c_str());
+        AllocaInst *alloca = builder->CreateAlloca(type, 0, v->vname->c_str());
         addvar(*(v->vname), new Expr(type_name, type, alloca));
 
         LLVMContext &ctx = builder->getContext();
@@ -372,6 +522,7 @@ public:
         continue_blocks.pop();
         break_blocks.pop();
         pop_scope();
+#endif
 	}
 
     virtual void visit(ast::Break *v) {
@@ -384,14 +535,10 @@ public:
         builder->CreateBr(break_block.top());
 	}
 
-    virtual void visit(ast::Function *v) {
-	}
-
     virtual void visit(ast::Return *v) {
         if (v->e) {
             v->e->accept(this);
             assert(stack.size() >= 1);
-
             Expr *V = stack.top();
             stack.pop();
 
@@ -402,44 +549,83 @@ public:
         }
 	}
 
-    virtual void visit(ast::Call *v) {
-        // TODO: get function
-        // TODO: match arguments against function
-        std::vector<Value*> arg_values;
+    virtual void visit(ast::Function *v) {
+        ast::FuncType proto = v->proto;
+        Type *ret_type = translate_type(proto->ret->type_name());
+        std::vector<Type *> args;
 
-        for (auto &n: v->params.childNodes) {
-            n->accept(this);
-            assert(stack.size() >= 1);
-
-            Expr *V = stack.top();
-            stack.pop();
-            arg_values.push_back(V->values);
+        for (auto &arg: proto->params.childNodes) {
+            if (ast::Type *targ = dynamic_cast<ast::Type*>(arg))
+                args.push_back(translate_type(targ->type_name()))
         }
 
-        builder->CreateCall(callee_func, arg_values, "calltmp");
+        FunctionType *func_type = FunctionType::get(ret_type, args, false);
+        Function *func = Function::Create(func_type, Function::ExternalLinkage, "");
+
+        size_t i = 0;
+        for (auto &arg : func->args()) {
+            arg.setName(*proto->params.names[i]);
+            i++;
+        }
+
+        LLVMContext &ctx = builder->getContext();
+        BasicBlock *func_entry = BasicBlock::Create(ctx, "entry", func);
+        builder->SetInsertPoint(func_entry);
+        push_scope();
+
+        i = 0;
+        for (auto &arg : func->args()) {
+            ast::Type *targ = dynamic_cast<ast::Type*>(proto->params.childNodes[i]);
+            AllocaInst *alloca = builder->CreateAlloca(arg.getType(), 0, arg.getName());
+            builder->CreateStore(arg, alloca);
+            addvar(arg.getName(), new Expr(targ->type_name(), arg.getType(), alloca));
+            i++;
+        }
+        v->body->accept(this);
+        // TODO: missing stmtlist, which shouldn't push anything..
+        pop_scope()
+
+        stack.push(new Expr(proto->type_name, func_type, func));
 	}
 
-    virtual void visit(ast::Array *v) {
+    virtual void visit(ast::Call *v) {
+        v->parent->accept(this);
+        assert(stack.size() >= 1);
+        Expr *callee_func = stack.top();
+        stack.pop();
+
+        FunctionType *func_type = dynamic_cast<FunctionType*>(callee_func->type);
+        assert(func_type);
+        assert(v->params.childNodes.size() == func_type->getNumParams());
+
+        std::vector<Value*> arg_values;
+        int i = 0;
+        for (auto &param: v->params.childNodes) {
+            param->accept(this);
+            assert(stack.size() >= 1);
+            Expr *V = stack.top();
+            stack.pop();
+
+            assert(V->type == func_type->getParamType (i));
+            arg_values.push_back(V->value);
+            i++;
+        }
+
+        std::string func_type_name = getreturntype(callee_func->type_name);
+        Value *call = builder->CreateCall(callee_func->value, arg_values, "calltmp");
+        stack.push(new Expr(func_type_name, func_type->getReturnType(), call))
 	}
 
-    virtual void visit(ast::Subscript *v) {
-	}
-    virtual void visit(ast::Expr *v) {
-	}
-    virtual void visit(ast::FuncDecl *v) {
-	}
-    virtual void visit(ast::UnionItem *v) {
-	}
-    virtual void visit(ast::UnionList *v) {
-	}
-    virtual void visit(ast::RecordDef *v) {
-	}
-    virtual void visit(ast::UnionDef *v) {
-	}
-    virtual void visit(ast::ExprList *v) {
-	}
-    virtual void visit(ast::StmtList *v) {
-	}
+    virtual void visit(ast::Array *v) { }
+    virtual void visit(ast::Subscript *v) { }
+    virtual void visit(ast::Attribute *v) { }
+    virtual void visit(ast::Expr *v) { }
+    virtual void visit(ast::UnionItem *v) { }
+    virtual void visit(ast::UnionList *v) { }
+    virtual void visit(ast::RecordDef *v) { }
+    virtual void visit(ast::UnionDef *v) { }
+    virtual void visit(ast::ExprList *v) { }
+    virtual void visit(ast::StmtList *v) { }
     virtual void visit(ast::SimpleType *) { }
     virtual void visit(ast::RefType *) { }
     virtual void visit(ast::PtrType *) { }

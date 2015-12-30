@@ -9,6 +9,14 @@
 - Add threads
 - Add macros
 
+# define c compatbility
+
+To call C from mamba we provide c_str for strings, and perahps c_struct
+for structs?
+
+To call mamba from C we must provide a mamba-dev package which has
+wrappers. we need mamba_str
+
 # define type casting
 
     var x = 1 as Float
@@ -38,7 +46,7 @@ The variables p and q now point to the same heap allocated Point record.
 Mamba will use reference counting to keep track of the number of
 references to any heap allocated variable, and will free up the memory
 when there are no references to it. Reference counting instructions are
-inserted during compile time, which incurs in very little overhead and
+inserted at compile time, which incurs in very little overhead and
 allows Mamba to operate without a garbage collector. To deal with
 circular references its possible to use weak reference counting
 (described elsewhere).
@@ -65,3 +73,47 @@ variable.
 # add support for tuple unpacking
 
     var (x, y) = tupleReturningFunc()
+
+# simplify variables and functions
+
+Perhaps NEVER specify the type of a variable declaration and always rely
+on inference? When would this be bad?
+
+var a = [1, 2, 3, 4]
+type(a) = [Int]
+
+var x = Float64(2.0)
+type(x) = Float64
+
+var x = Float32(1.0)
+type(x) = Float32
+
+With Float and Int as default types when unspecified then things are
+easy:
+
+var x = 1
+var y = 3.0
+
+to force unsigned int we could support:
+
+var x = 1u
+
+and for specific sizes:
+
+var y = Unt8(2)
+      = 2u8 // 4 chars shorter, but maybe harder to read?
+
+      in arrays you only need to specify the first type anyway
+
+      = [Unt8(2), 3, 4, 5, 8, 9]
+
+var z = Int32(8)
+
+
+var y = 3.0d
+var z = 3.0f
+
+
+fun add(Int a, Int b) -> Int:
+    return a + b
+

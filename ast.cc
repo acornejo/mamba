@@ -85,7 +85,7 @@ void TupleType::accept(Visitor *v) { v->visit(this); }
 void FuncType::accept(Visitor *v) { v->visit(this); }
 void SimpleType::accept(Visitor *v) { v->visit(this); }
 void TypeList::accept(Visitor *v) { v->visit(this); }
-void Declaration::accept(Visitor *v) { v->visit(this); }
+void VarDecl::accept(Visitor *v) { v->visit(this); }
 void FuncDecl::accept(Visitor *v) { v->visit(this); }
 void UnionItem::accept(Visitor *v) { v->visit(this); }
 void UnionList::accept(Visitor *v) { v->visit(this); }

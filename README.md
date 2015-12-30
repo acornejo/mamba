@@ -55,7 +55,7 @@ The `as` keyword used above can be used to perform explicit type conversions.
 The following three declarations are equivalent, and they all declare
 `x` as an array of ten integers initialized to zero.
 
-    var [Int] x = [0, 0, 0, 0, 0, 0, 0, 0, 0 ,0,0]
+    var [Int] x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     var [Int] x = [0; 10]
 
 As with POD types, when possible mamba will infer the types from the
@@ -102,27 +102,47 @@ The following defines a record two hold a two-dimensional point.
         Float x
         Float y
 
-
     var p = Point(x=2.0, y=3.0)
+
+OR:
+
+    record Point:
+        x: Float
+        y: Float
 
 # Unions
 
-    union Maybe{T}:
+    union MaybeInt:
         None
-        Some(T)
+        Some(Int)
 
-    var option = Some(3)
+    var option = MaybeInt::Some(3)
 
-It is worth noting that if we wanted to initialize option to `None`, the
-following will *not* work:
+Alternatively, to initialize to None
 
-    var option = None
+    var option = MaybeInt::None
 
-This is because there isn't enough information to determine if option
-is of type `Mayba<Int>`, `Maybe<Str>`, etc. We can work around this by
-explicitly declaring the variable type. That is:
+To determine the value of a union variable, you must use the
+destructuring operator match.
 
-    var Maybe<Int> option = None
+match option:
+    Some(x):
+        do stuff with x
+    None:
+        print("not found!")
+
+This is roughly equivalent to:
+
+if option == Some(x):
+    do stuff with x
+elif option == None:
+    print("not found!")
+
+The important distinction is that you canno
+
+Two things are worth noting. First, observe that when using the match
+operator it is not necessary to specify the namespace of the union
+variable, since this can be inferred by the variable type of option.
 
 
 # Function definitions
@@ -131,7 +151,7 @@ We already learned how to declare new custom variables and define
 variables. Functions definitions are similar.
 
 
-    fun dist (Point p, Point q) -> Float:
+    fun dist = (Point p, Point q) -> Float:
         var x = p.x - q.x
         var y = p.y - q.y
         return sqrt(x*x + y*y)
@@ -149,33 +169,32 @@ An alternative way of declaring the function dist would be as follows:
         var y = p.y - q.y
         return sqrt(x*x + y*y)
 
-These two forms are *not* equivalent. When declaring
-functions using the `fun` keyword it is possible to bind several
-different function definitions to the same function name; this feature
-is commonly known as function overloading.
-On the other hand, when using the `var` keyword the function definition
-is bound to a variable name, and in Mamba variables have a single
-binding.
+
+These two forms are *not* equivalent. When declaring functions using the
+`fun` keyword it is possible to bind several different function
+definitions with different signatures to the same function name; this
+feature is commonly known as function overloading.
+On the other hand, when using the `var` keyword, we are assigning a
+function definition to a regular variable, and a variables cannot point
+to multiple function definitions simultaenously.
 
 Therefore, if we wanted to define two functions named `dist`, one for
 computing the euclidean distance between two points (shown above), and
 another for computing the statistical distance between two random
 variables, we can only do it through the `fun` keyword.
 
-As a rule of thumb, you should always use the `fun` keyword when
-declaring functions, the only exception is when you want to explicitly
-prevent overloading.
+As a convention, whenever possible use the `fun` keyword when
+declaring functions.
 
 # Functions that receive references
 
-Mamba treats the input parameters received by a function as read-only.
+Mamba treats the input parameters received by functions as read-only.
 Restricting functions to not have side effects on their input parameters
-generally leads to cleaner code. Mamba provides references for those
-rare cases when modifying the input parameters is actually what you
-want.
-A variable is declared to be a reference by prepending its type with the `&`
-operator. They must be declared as references both in the function
-definition and during function invocation.
+generally leads to cleaner code. For those rare cases when modifying the
+input parameters is actually what you want, Mamba provides references.
+A variable is declared to be a reference by prepending its type with the
+`&` operator. Variables must be declared as references both in the
+function definition and during function invocation.
 
     fun increment (&Int x) -> None:
         x = x + 1
@@ -187,6 +206,22 @@ definition and during function invocation.
     increment(&a)
     assert(a == 3)
 
+# Closures
+
+It is sometimes desirable to define functions which capture variables
+available in the scope they were declared in. For instance,
+
+    fun incrementor = (Int start) -> (Int) -> Int:
+        return [start](Int step) -> Int:
+           return start + step
+
+
+    var f = incrementor(10)
+    var g = incrementor(20)
+
+    assert(f(1) == 11)
+    assert(g(1) == 21)
+
 # Defining interfaces
 
 The following interface defines an empty type constructor. The reserved
@@ -194,15 +229,40 @@ type `Self` is a placeholder for whatever type implements the
 interface.
 
     iface Default:
-        fun default () -> Self
+        fun default = () -> Self
 
 We can now implement the default constructor interface for the custom
 type Point as follows:
 
-    fun Point.default () -> Point:
+    fun Point.default = () -> Point:
         return Point(x = 0.0, y = 0.0)
 
     var p = Point.default()
+
+Alternative def:
+
+    iface Default:
+        default = () -> Self
+
+    iface Shape:
+        area = (Shape) -> Float
+        perim = (Shape) -> Float
+
+OR:
+
+    iface Default:
+       () -> Self default
+
+    iface Shape:
+       (Shape) -> Float area
+       (Shape) -> Float perim
+
+OR:
+
+    iface Shape:
+       area: (Shape) -> Float
+       perim: (Shape) -> Float
+
 
 # Objected oriented programming without objects
 
@@ -253,7 +313,7 @@ with dictionaries (for that there are Maps).
 
     var p = Point.default()
 
-    p.z = 3.0 # won't compile
+    p.hello = 3.0 # won't compile
 
 For tuples, you must always use an index whose values is known at
 compile time.
@@ -267,14 +327,6 @@ If you want to index using values which are computed at runtime, then
 you should use arrays instead. By default there is bounds checking
 performed on arrays at runtime, although this can be disabled.
 
-However, in almost all use cases its possible to use arrays through
-iterators, which avoid bounds checking without sacrificing safety.
-
-    var a = [1,2,3,4,5]
-
-    for i in a:
-        print!("#{i}")
-
 # unwrapping unions
 Unions are particularly useful to send and receive parameters which may
 or may not have a value. For example, suppose you want to find
@@ -282,7 +334,7 @@ the largest value in a list. What should you return if a user
 attempts to find the largest element of an empty list?
 
     var list = [1,5,10,3,7,15,8,4]
-    var Maybe{int} val = find_max(list)
+    var MaybeInt val = find_max(list)
 
     match val:
         None:
@@ -294,8 +346,8 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    fun find_max (Int[] list) -> Maybe{Int}:
-        var max = None
+    fun find_max (Int[] list) -> MaybeInt:
+        var MaybeInt max = None
         for i in list:
             match max:
                 None:
@@ -308,7 +360,7 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    fun find_max (Int[] list) -> Maybe{Int}:
+    fun find_max (Int[] list) -> MaybeInt:
         if list.length == 0:
             return None
         var max = list[0]
@@ -336,22 +388,29 @@ match inside the for loop with a single if outside the loop.
     var p = *Point(x=3.0, y=2.0)
 
 # Generic function definitions
-    fun max<T is Orderable>(T x, T y) -> T:
+
+    alias T to generic Orderable
+
+    fun max<T>(T x, T y) -> T:
         if x > y:
             return x
         else:
             return y
 
-    fun max<T is Orderable>(T x, T y) -> T:
+    fun max<T>(T x, T y) -> T:
         if x > y:
             return y
         else:
             return x
 
-    fun swap<T is Copyable>(&T x, &T y) -> None:
+    alias T to generic Copyable
+
+    fun swap<T>(&T x, &T y) -> None:
         var t = x
         x = y
         y = t
+
+Example usage of generic functions:
 
     var big = max(3,4)
     var small = min(3,4)
@@ -360,14 +419,43 @@ match inside the for loop with a single if outside the loop.
 
 # Generic types and interfaces
 
-    record MapIterator <Key is Orderable, Val is Copyable>:
-        MapEntry <Key,Val> data
+vectors and maps (or hashes) are builtin.
+
+
+    alias Key to generic Orderable
+    alias Val to generic Copyable
+
+    record MapIterator <Key, Val>:
+        MapEntry <Key, Val> data
         Maybe <Self> next
 
-    fun MapIterator.next <K,V> (&Self self) -> Maybe <Self>
+    record <Val> Stack:
+        [Val] raw_data
 
-    record <Key is Orderable, Val is Copyable> Map:
+    fun Stack<Val>.push (Self &self, Val v) -> None:
+        self.raw_data.append(v)
+
+    fun Stack<Val>.pop (Self &self) -> Val:
+        var Val v = self.raw_data[-1]
+        self.raw_data.pop_back()
+        return v
+
+    record <Key, Val> Map:
         MapEntry<Key,Val> test
 
     fun <K,V> Map.iter (Self self) -> <K,V> MapIterator:
         return MapIterator <K,V> (self)
+
+
+our stl needs:
+
+adapters for
+- stack
+- queue
+- single list
+- double list
+- priority queue
+- set
+- multiset
+- map
+- multimap

@@ -67,7 +67,7 @@
 %destructor { delete $$; } STRING
 
 
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt decl_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt var_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
 %type<node> func_expr expr_list_ne expr_list expr
 %type<type> pointer_type array_type ref_type tuple_type func_type return_type type
 %type<tlist> record_block func_params type_list 
@@ -104,7 +104,7 @@ small_stmt:
     expr
     { $$ = new ast::Expr($1); } |
 
-    decl_stmt
+    var_stmt
     { $$ = $1; } |
 
     assn_stmt
@@ -160,16 +160,16 @@ assn_stmt:
     expr '=' assn_stmt
     { $$ = $3; ((ast::Assign*)$$)->vars.push_back($1); } ;
 
-decl_stmt:
+var_stmt:
     VAR IDENTIFIER '=' expr
-    { $$ = new ast::Declaration($2, $4, NULL); } |
+    { $$ = new ast::VarDecl($2, $4, NULL); } |
 
     VAR type IDENTIFIER '=' expr
-    { $$ = new ast::Declaration($3, $5, $2); } ;
+    { $$ = new ast::VarDecl($3, $5, $2); } ;
 
 func_stmt:
-    FUN IDENTIFIER func_expr
-    { $$ = new ast::FuncDecl($2, $3); } ;
+    FUN IDENTIFIER '=' func_expr
+    { $$ = new ast::FuncDecl($2, $4); } ;
 
 if_stmt:
     IF expr ':' suite elif_stmt
