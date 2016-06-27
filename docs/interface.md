@@ -1,3 +1,6 @@
+// hash
+__hash__
+
 // comparison < <= == >= > !=
 __lt__
 __le__
@@ -26,20 +29,16 @@ __and__
 __xor__
 
 __iter__// for i in x
+__next__// ??
 __as__ // x as a
 __contains__ // a in x
 __delete__ // x out of scope
 __call__? // x()
 __getitem__ // return x[a]
 __setitem__ // x[a] = 3
+__delitem__ // del x[a]
 __getslice__ // return x[a:b]
 __setslice__ // x[a:b] = y
-
-fun __add__ (Int x, Int y) -> Int:
-   return x + y
-
-fun __sub__ (Float x, Float y) -> Float
-    return x - y
 
 iface Number:
    __add__ = |Self x, Self y| -> Self

@@ -1,6 +1,11 @@
 #ifndef _TYPECLASS_H__
 #define _TYPECLASS_H__
 
+static constexpr char *BoolName = "Bool";
+static constexpr char *IntName = "Int";
+static constexpr char *FloatName = "Float";
+static constexpr char *StringName = "String";
+
 class TypeClass {
 protected:
     std::map<std::string,> func_list;
@@ -27,7 +32,7 @@ class BoolExpr {
 private:
     bool val;
 public:
-    BoolExpr(bool _val): Expr("Bool"), val(_val) {}
+    BoolExpr(bool _val): Expr(BoolName), val(_val) {}
     Value *value() {
         return ConstantInt::get(getGlobalContext(), APInt(val ? 1 : 0));
     }
@@ -37,7 +42,7 @@ class IntExpr {
 private:
     int val;
 public:
-    IntExpr(int _val): Expr("Int"), val(_val) {}
+    IntExpr(int _val): Expr(IntName), val(_val) {}
     Value *value() {
         return ConstnatInt::get(getGlobalContext(), APInt(val));
     }
@@ -47,7 +52,7 @@ class FloatExpr {
 private:
     float val;
 public:
-    IntExpr(int _val): Expr("Float"), val(_val) {}
+    IntExpr(int _val): Expr(FloatName), val(_val) {}
     Value *value() {
         return ConstnatInt::get(getGlobalContext(), APFloat(val));
     }
@@ -57,7 +62,7 @@ class StringExpr {
 private:
     std::string val;
 public:
-    StringExpr(int _val): Expr("String"), val(_val) {}
+    StringExpr(int _val): Expr(StringName), val(_val) {}
     Value *value() {
         return ConstantArray::get(getGlobalContext(), val);
     }

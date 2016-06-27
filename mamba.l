@@ -1,7 +1,6 @@
 %{
 #include <vector>
 #include <string>
-#include <stdlib.h>
 #include "mamba_context.h"
 
 std::vector<char> paren;
@@ -113,8 +112,7 @@ string      L?\"(\\.|[^\\"])*\"
 "^"             { return TK(T_BITXOR); }
 "~"             { return TK(T_BITNEG); }
 
-"var"           { return TK(VAR); }
-"fun"           { return TK(FUN); }
+"let"           { return TK(LET); }
 "False"         { return TK(FALSE); }
 "True"          { return TK(TRUE); }
 "record"        { return TK(RECORD); }

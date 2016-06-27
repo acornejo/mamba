@@ -27,42 +27,29 @@ underscores (i.e. camelCase).
 # Variable declaration
 Variables must always be initialized when declared.
 
-    var Int x = 3
-    var Float y = 4.0
+    let x = 3
+    let y = 4.0
 
 In cases where the variable type can be inferred from context, it is not
-necessary to explicitly declare its type.
+necessary to explicitly declare its type. Howeer, you can also be
+explicit
 
-    var x = 3
-    var y = 4.0
-
-Mamba does not perform any implicit type conversions. Therefore the
-following example does *not* compile, since you can't store an integer
-in a variable declared as a floating point.
-
-    var Float z = 50
-
-However, either of the following will compile.
-
-    var Float z = 50.0
-    var Float z = 50 as Float
-
-The `as` keyword used above can be used to perform explicit type conversions.
-
+    let x = Int{3}
+    let y = Float{4.0}
 
 # Arrays
 
 The following three declarations are equivalent, and they all declare
 `x` as an array of ten integers initialized to zero.
 
-    var [Int] x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    var [Int] x = [0; 10]
+    let [Int] x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let [Int] x = [0; 10]
 
 As with POD types, when possible mamba will infer the types from the
 context, hence the following declares an array of ten integers
 initialized to zero.
 
-    var x = [0; 10]
+    let x = [0; 10]
 
 # Tuples
 
@@ -74,19 +61,19 @@ distinct types.
 The next example shows a tuple that holds a string and an integer (for
 example, to represent the name and age of death of famous writers).
 
-    var (String, Int) jane = ("Jane Austen", 41)
-    var (String, Int) ernest = ("Ernest Hemingway", 61)
-    var (String, Int) mark = ("Mark Twain", 74)
+    let (String, Int) jane = ("Jane Austen", 41)
+    let (String, Int) ernest = ("Ernest Hemingway", 61)
+    let (String, Int) mark = ("Mark Twain", 74)
 
 As with POD types it is not necessary to explicitly annotate the type of
 a tuple in cases where mamba can infer it by the context. For instance,
   we could have declared `jane` as follows:
 
-    var jane = ("Jane Austen", 41)
+    let jane = ("Jane Austen", 41)
 
 # Dictionaries
 
-    var [Str: Str] dict = ["hello": "hola", "world": "mundo"]
+    let [Str: Str] dict = ["hello": "hola", "world": "mundo"]
 
 
 # Records
@@ -102,7 +89,7 @@ The following defines a record two hold a two-dimensional point.
         Float x
         Float y
 
-    var p = Point(x=2.0, y=3.0)
+    let p = Point{x=2.0, y=3.0}
 
 OR:
 
@@ -116,11 +103,11 @@ OR:
         None
         Some(Int)
 
-    var option = MaybeInt::Some(3)
+    let option = MaybeInt.Some(3)
 
 Alternatively, to initialize to None
 
-    var option = MaybeInt::None
+    let option = MaybeInt.None
 
 To determine the value of a union variable, you must use the
 destructuring operator match.
@@ -151,40 +138,15 @@ We already learned how to declare new custom variables and define
 variables. Functions definitions are similar.
 
 
-    fun dist = (Point p, Point q) -> Float:
-        var x = p.x - q.x
-        var y = p.y - q.y
+    let dist = (Point p, Point q) -> Float:
+        let x = p.x - q.x
+        let y = p.y - q.y
         return sqrt(x*x + y*y)
 
-    var p = Point(x = 1.0, y = 1.0)
-    var q = Point(x = 3.0, y = 3.0)
+    let p = Point{x = 1.0, y = 1.0}
+    let q = Point{x = 3.0, y = 3.0}
 
     assert(dist(p,q) == sqrt(8.0))
-
-
-An alternative way of declaring the function dist would be as follows:
-
-    var dist = (Point p, Point q) -> Float:
-        var x = p.x - q.x
-        var y = p.y - q.y
-        return sqrt(x*x + y*y)
-
-
-These two forms are *not* equivalent. When declaring functions using the
-`fun` keyword it is possible to bind several different function
-definitions with different signatures to the same function name; this
-feature is commonly known as function overloading.
-On the other hand, when using the `var` keyword, we are assigning a
-function definition to a regular variable, and a variables cannot point
-to multiple function definitions simultaenously.
-
-Therefore, if we wanted to define two functions named `dist`, one for
-computing the euclidean distance between two points (shown above), and
-another for computing the statistical distance between two random
-variables, we can only do it through the `fun` keyword.
-
-As a convention, whenever possible use the `fun` keyword when
-declaring functions.
 
 # Functions that receive references
 
@@ -196,10 +158,10 @@ A variable is declared to be a reference by prepending its type with the
 `&` operator. Variables must be declared as references both in the
 function definition and during function invocation.
 
-    fun increment (&Int x) -> None:
+    let increment = (&Int x) -> None:
         x = x + 1
 
-    var a = 1
+    let a = 1
     assert(a == 1)
     increment(&a)
     assert(a == 2)
@@ -211,13 +173,13 @@ function definition and during function invocation.
 It is sometimes desirable to define functions which capture variables
 available in the scope they were declared in. For instance,
 
-    fun incrementor = (Int start) -> (Int) -> Int:
+    let incrementor = (Int start) -> (Int) -> Int:
         return [start](Int step) -> Int:
            return start + step
 
 
-    var f = incrementor(10)
-    var g = incrementor(20)
+    let f = incrementor(10)
+    let g = incrementor(20)
 
     assert(f(1) == 11)
     assert(g(1) == 21)
@@ -229,26 +191,21 @@ type `Self` is a placeholder for whatever type implements the
 interface.
 
     iface Default:
-        fun default = () -> Self
-
-We can now implement the default constructor interface for the custom
-type Point as follows:
-
-    fun Point.default = () -> Point:
-        return Point(x = 0.0, y = 0.0)
-
-    var p = Point.default()
-
-Alternative def:
-
-    iface Default:
         default = () -> Self
 
     iface Shape:
         area = (Shape) -> Float
         perim = (Shape) -> Float
 
-OR:
+We can now implement the default constructor interface for the custom
+type Point as follows:
+
+    let Point.default = () -> Point:
+        return Point(x = 0.0, y = 0.0)
+
+    let p = Point.default()
+
+Alternative def:
 
     iface Default:
        () -> Self default
@@ -275,32 +232,32 @@ below should illustrate how the some of the classic patterns in object
 oriented languages can be easily translated to Mamba.
 
     interface Shape:
-        fun area (Shape) -> Float
-        fun perim (Shape) -> Float
+        let area (Shape) -> Float
+        let perim (Shape) -> Float
 
-    fun Shape.descibe (Shape self):
+    let Shape.descibe = (Shape self):
         print!("area is #{self.area()} and perimeter #{self.perim()})
 
     record Rect:
         Float width
         Float height
 
-    fun Rect.area (Rect self) -> Float:
+    let Rect.area (Rect self) -> Float:
         return self.width*self.height
 
-    fun Rect.perim (Rect self) -> Float:
+    let Rect.perim (Rect self) -> Float:
         return self.width*2+self.height*2
 
     record Circle:
         Float radius
 
-    fun Circle.area (Circle self) -> Float:
+    let Circle.area (Circle self) -> Float:
         return math.PI*self.radius**2
 
-    fun Circle.perim (Circle self) -> Float:
+    let Circle.perim (Circle self) -> Float:
         return 2*math.Pi*self.radius
 
-    var shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
+    let shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
 
     for shape in shape_list:
         shape.describe()
@@ -311,14 +268,14 @@ On records you can always access existing members but you cannot access
 or create new members. In other words, records should not be confused
 with dictionaries (for that there are Maps).
 
-    var p = Point.default()
+    let p = Point.default()
 
     p.hello = 3.0 # won't compile
 
 For tuples, you must always use an index whose values is known at
 compile time.
 
-    var v = (1, "hi there)
+    let v = (1, "hi there)
     v[3] = 2.0 # won't compile
 
     v[i] = 4.0 # won't compile
@@ -333,8 +290,8 @@ or may not have a value. For example, suppose you want to find
 the largest value in a list. What should you return if a user
 attempts to find the largest element of an empty list?
 
-    var list = [1,5,10,3,7,15,8,4]
-    var MaybeInt val = find_max(list)
+    let list = [1,5,10,3,7,15,8,4]
+    let MaybeInt val = find_max(list)
 
     match val:
         None:
@@ -346,8 +303,8 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    fun find_max (Int[] list) -> MaybeInt:
-        var MaybeInt max = None
+    let find_max (Int[] list) -> MaybeInt:
+        let MaybeInt max = None
         for i in list:
             match max:
                 None:
@@ -360,10 +317,10 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    fun find_max (Int[] list) -> MaybeInt:
+    let find_max (Int[] list) -> MaybeInt:
         if list.length == 0:
             return None
-        var max = list[0]
+        let max = list[0]
         for i in list[1:]:
             if i > max:
                 max = i
@@ -373,31 +330,27 @@ For small lists there will be no difference, but for larger lists you
 will save one branch for every item in the array, since we replaced the
 match inside the for loop with a single if outside the loop.
 
-# unpacking tuples
-    var Pair(z, w) = pair
-    var (z, w) = pair
-
 # Allocating in heap
-    var *Int32 x = *3
-    var *Float32 y = *4.0
-    var *Point p = *Point(x=3.0, y=2.0)
+    let *Int32 x = *3
+    let *Float32 y = *4.0
+    let *Point p = *Point(x=3.0, y=2.0)
 
 # type inference works here too
-    var x = *3
-    var y = *4.0
-    var p = *Point(x=3.0, y=2.0)
+    let x = *3
+    let y = *4.0
+    let p = *Point(x=3.0, y=2.0)
 
 # Generic function definitions
 
     alias T to generic Orderable
 
-    fun max<T>(T x, T y) -> T:
+    let max<T> = (T x, T y) -> T:
         if x > y:
             return x
         else:
             return y
 
-    fun max<T>(T x, T y) -> T:
+    let min<T> = (T x, T y) -> T:
         if x > y:
             return y
         else:
@@ -405,16 +358,16 @@ match inside the for loop with a single if outside the loop.
 
     alias T to generic Copyable
 
-    fun swap<T>(&T x, &T y) -> None:
-        var t = x
+    let swap<T> = (&T x, &T y) -> None:
+        let t = x
         x = y
         y = t
 
 Example usage of generic functions:
 
-    var big = max(3,4)
-    var small = min(3,4)
-    swap(&big,&small)
+    let big = max(3,4)
+    let small = min(3,4)
+    swap(&big, &small)
 
 
 # Generic types and interfaces
@@ -432,18 +385,18 @@ vectors and maps (or hashes) are builtin.
     record <Val> Stack:
         [Val] raw_data
 
-    fun Stack<Val>.push (Self &self, Val v) -> None:
+    let Stack<Val>.push (Self &self, Val v) -> None:
         self.raw_data.append(v)
 
-    fun Stack<Val>.pop (Self &self) -> Val:
-        var Val v = self.raw_data[-1]
+    let Stack<Val>.pop (Self &self) -> Val:
+        let Val v = self.raw_data[-1]
         self.raw_data.pop_back()
         return v
 
     record <Key, Val> Map:
         MapEntry<Key,Val> test
 
-    fun <K,V> Map.iter (Self self) -> <K,V> MapIterator:
+    let <K,V> Map.iter (Self self) -> <K,V> MapIterator:
         return MapIterator <K,V> (self)
 
 

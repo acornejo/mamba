@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <stdint.h>
 
 namespace ast {
     typedef int64_t integer_t;
