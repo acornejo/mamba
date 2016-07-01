@@ -68,6 +68,4 @@ public:
     }
 };
 
-
-
 #endif//_TYPECLASS_H__

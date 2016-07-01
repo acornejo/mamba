@@ -138,7 +138,7 @@ We already learned how to declare new custom variables and define
 variables. Functions definitions are similar.
 
 
-    let dist = (Point p, Point q) -> Float:
+    let dist = fun (Point p, Point q) -> Float:
         let x = p.x - q.x
         let y = p.y - q.y
         return sqrt(x*x + y*y)
@@ -158,7 +158,7 @@ A variable is declared to be a reference by prepending its type with the
 `&` operator. Variables must be declared as references both in the
 function definition and during function invocation.
 
-    let increment = (&Int x) -> None:
+    let increment = fun (&Int x) -> None:
         x = x + 1
 
     let a = 1
@@ -173,8 +173,8 @@ function definition and during function invocation.
 It is sometimes desirable to define functions which capture variables
 available in the scope they were declared in. For instance,
 
-    let incrementor = (Int start) -> (Int) -> Int:
-        return [start](Int step) -> Int:
+    let incrementor = fun (Int start) -> (Int) -> Int:
+        return fun [start](Int step) -> Int:
            return start + step
 
 
@@ -191,16 +191,16 @@ type `Self` is a placeholder for whatever type implements the
 interface.
 
     iface Default:
-        default = () -> Self
+        default = fun () -> Self
 
     iface Shape:
-        area = (Shape) -> Float
-        perim = (Shape) -> Float
+        area = fun (Shape) -> Float
+        perim = fun (Shape) -> Float
 
 We can now implement the default constructor interface for the custom
 type Point as follows:
 
-    let Point.default = () -> Point:
+    let Point.default = fun () -> Point:
         return Point(x = 0.0, y = 0.0)
 
     let p = Point.default()
@@ -208,17 +208,17 @@ type Point as follows:
 Alternative def:
 
     iface Default:
-       () -> Self default
+       fun () -> Self default
 
     iface Shape:
-       (Shape) -> Float area
-       (Shape) -> Float perim
+       fun (Shape) -> Float area
+       fun (Shape) -> Float perim
 
 OR:
 
     iface Shape:
-       area: (Shape) -> Float
-       perim: (Shape) -> Float
+       area: fun (Shape) -> Float
+       perim: fun (Shape) -> Float
 
 
 # Objected oriented programming without objects
@@ -232,29 +232,29 @@ below should illustrate how the some of the classic patterns in object
 oriented languages can be easily translated to Mamba.
 
     interface Shape:
-        let area (Shape) -> Float
-        let perim (Shape) -> Float
+        let area = fun (Shape) -> Float
+        let perim = fun (Shape) -> Float
 
-    let Shape.descibe = (Shape self):
+    let Shape.descibe = fun (Shape self) -> None:
         print!("area is #{self.area()} and perimeter #{self.perim()})
 
     record Rect:
         Float width
         Float height
 
-    let Rect.area (Rect self) -> Float:
+    let Rect.area = fun (Rect self) -> Float:
         return self.width*self.height
 
-    let Rect.perim (Rect self) -> Float:
+    let Rect.perim = fun (Rect self) -> Float:
         return self.width*2+self.height*2
 
     record Circle:
         Float radius
 
-    let Circle.area (Circle self) -> Float:
+    let Circle.area = fun (Circle self) -> Float:
         return math.PI*self.radius**2
 
-    let Circle.perim (Circle self) -> Float:
+    let Circle.perim = fun (Circle self) -> Float:
         return 2*math.Pi*self.radius
 
     let shape_list = [Rect(width=3.0, height=3.0) as Shape, Circle(radius = 2.0) as Shape]
@@ -303,7 +303,7 @@ In general, the Maybe union type can be used in cases where you would
 usually use a placeholder value. For instance, here is how the code of a
 function that finds the maximum element could look like if using a list.
 
-    let find_max (Int[] list) -> MaybeInt:
+    let find_max = fun (Int[] list) -> MaybeInt:
         let MaybeInt max = None
         for i in list:
             match max:
@@ -317,7 +317,7 @@ function that finds the maximum element could look like if using a list.
 Of course, that code isn't particularly efficient, but it is good to
 illustrate the point. Instead you should write:
 
-    let find_max (Int[] list) -> MaybeInt:
+    let find_max = fun (Int[] list) -> MaybeInt:
         if list.length == 0:
             return None
         let max = list[0]

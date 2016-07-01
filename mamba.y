@@ -57,7 +57,7 @@
 %token<integer> INTEGER
 %token<token> INDENT DEDENT NEWLINE
 %token<token> T_ARROW T_ELLIPSIS
-%token<token> LET FALSE TRUE RECORD UNION IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
+%token<token> LET FUN FALSE TRUE RECORD UNION IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
 
 %token<token> NOT T_BITNEG OR AND T_LT T_GT T_LE T_GE T_EQ T_NE T_BITOR T_BITAND T_BITXOR T_LSHIFT T_RSHIFT T_ADD T_SUB T_MUL T_DIV T_MOD T_POW
 
@@ -66,7 +66,7 @@
 %destructor { delete $$; } IDENTIFIER
 %destructor { delete $$; } STRING
 
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt let_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt let_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
 %type<node> func_expr expr_list_ne expr_list expr
 %type<type> pointer_type array_type ref_type tuple_type func_type type
 %type<tlist> record_block func_params type_list
@@ -128,9 +128,6 @@ compound_stmt:
     for_stmt
     { $$ = $1; } |
 
-    func_stmt
-    { $$ = $1; } |
-
     record_stmt
     { $$ = $1; } |
 
@@ -161,12 +158,8 @@ assn_stmt:
 
 let_stmt:
     LET IDENTIFIER '=' expr
-    { $$ = new ast::VarDecl($2, $4, NULL); } |
+    { $$ = new ast::VarDecl($2, $4); } |
 
-    LET type IDENTIFIER '=' expr
-    { $$ = new ast::VarDecl($3, $5, $2); } ;
-
-func_stmt:
     LET IDENTIFIER '=' func_expr
     { $$ = new ast::FuncDecl($2, $4); } ;
 
@@ -237,6 +230,10 @@ array_type:
     '[' type ']'
     { $$ = new ast::ArrayType($2); } ;
 
+array_type:
+    '[' type ':' type ']'
+    { $$ = new ast::MapType($2, $4); } ;
+
 ref_type:
     '&' type
     { $$ = new ast::RefType($2); } ;
@@ -286,11 +283,11 @@ func_params:
     { $$ = $1; $$->appendNamedChild($4, $3); } ;
 
 func_expr:
-    '(' ')' T_ARROW type ':' suite
-    { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $4), $6); } |
+    FUN '(' ')' T_ARROW type ':' suite
+    { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $5), $7); } |
 
-    '(' func_params ')' T_ARROW type ':' suite
-    { $$ = new ast::Function(new ast::FuncType($2, $5), $7); } ;
+    FUN '(' func_params ')' T_ARROW type ':' suite
+    { $$ = new ast::Function(new ast::FuncType($3, $6), $8); } ;
 
 expr_list_ne:
     expr

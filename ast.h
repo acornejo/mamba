@@ -115,6 +115,21 @@ namespace ast {
             }
     };
 
+    class MapType: public Type {
+        public:
+            Type *key_type;
+            Type *val_type;
+            MapType(Type *_key_type, Type *_val_type):
+              Type(), key_type(_key_type), val_type(_val_type) {
+                appendChild(key_type);
+                appendChild(val_type);
+            }
+            virtual void accept(Visitor *v);
+            virtual std::string type_name() const {
+                return "[" + key_type->type_name() + ":" + val_type->type_name() + "]";
+            }
+    };
+
     class TupleType: public Type {
         public:
             Type *base_type;
@@ -388,12 +403,9 @@ namespace ast {
         public:
             std::string *name;
             Node *expr;
-            Node *type_spec;
-            VarDecl(std::string *_name, Node *_expr, Node *_type_spec): Node(), name(_name), expr(_expr), type_spec(_type_spec) {
+            VarDecl(std::string *_name, Node *_expr): Node(), name(_name), expr(_expr) {
                 addString(name);
                 appendChild(expr);
-                if (type_spec)
-                    appendChild(type_spec);
             }
             virtual void accept(Visitor *v);
     };
@@ -458,6 +470,7 @@ namespace ast {
             virtual void visit(String *) = 0;
             virtual void visit(Variable *) = 0;
             virtual void visit(VarDecl *) = 0;
+            virtual void visit(FuncDecl *) = 0;
             virtual void visit(Assign *) = 0;
             virtual void visit(Unary *) = 0;
             virtual void visit(Binary *) = 0;
@@ -465,12 +478,11 @@ namespace ast {
             virtual void visit(Or *) = 0;
             virtual void visit(IfElse *) = 0;
             virtual void visit(While *) = 0;
+            virtual void visit(For *) = 0;
             virtual void visit(Break *) = 0;
             virtual void visit(Continue *) = 0;
             virtual void visit(Return *) = 0;
-            virtual void visit(For *) = 0;
             virtual void visit(Function *) = 0;
-            virtual void visit(FuncDecl *) = 0;
             virtual void visit(Call *) = 0;
             virtual void visit(Array *) = 0;
             virtual void visit(Subscript *) = 0;
@@ -486,6 +498,7 @@ namespace ast {
             virtual void visit(RefType *) = 0;
             virtual void visit(PtrType *) = 0;
             virtual void visit(ArrayType *) = 0;
+            virtual void visit(MapType *) = 0;
             virtual void visit(TupleType *) = 0;
             virtual void visit(FuncType *) = 0;
             virtual void visit(TypeList *) = 0;

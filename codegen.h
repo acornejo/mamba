@@ -119,7 +119,7 @@ public:
 	}
 
     virtual void visit(ast::String *v) {
-        Value *gs = builder->CreateGlobalString(v->val.c_str(), "globalstring");
+        Value *gs = builder->CreateGlobalString(v->val.c_str());
         stack.push(new Expr("String", builder->getInt8PtrTy(), builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
 	}
 
@@ -150,7 +150,7 @@ public:
         Expr *V = stack.top();
         stack.pop();
 
-        addfun(*(v->name), V);
+        addvar(*(v->name), V);
     }
 
     virtual void visit(ast::Assign *v) {
@@ -559,7 +559,8 @@ public:
                 args.push_back(translate_type(targ->type_name()))
         }
 
-        FunctionType *func_type = FunctionType::get(ret_type, args, false);
+        const bool isVarArg = false;
+        FunctionType *func_type = FunctionType::get(ret_type, args, isVarArg);
         Function *func = Function::Create(func_type, Function::ExternalLinkage, "");
 
         size_t i = 0;
@@ -582,6 +583,7 @@ public:
             i++;
         }
         v->body->accept(this);
+        // call verifyFunction
         // TODO: missing stmtlist, which shouldn't push anything..
         pop_scope()
 

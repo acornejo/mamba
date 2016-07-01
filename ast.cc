@@ -79,6 +79,7 @@ void Continue::accept(Visitor *v) { v->visit(this); }
 void Return::accept(Visitor *v) { v->visit(this); }
 void Function::accept(Visitor *v) { v->visit(this); }
 void ArrayType::accept(Visitor *v) { v->visit(this); }
+void MapType::accept(Visitor *v) { v->visit(this); }
 void RefType::accept(Visitor *v) { v->visit(this); }
 void PtrType::accept(Visitor *v) { v->visit(this); }
 void TupleType::accept(Visitor *v) { v->visit(this); }

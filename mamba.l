@@ -4,7 +4,7 @@
 #include "mamba_context.h"
 
 std::vector<char> paren;
-std::vector<int> indent;
+std::vector<size_t> indent;
 int pending_indents = 0, pending_dedents = 0;
 
 #define paren_add(c) paren.push_back(c)
@@ -113,6 +113,7 @@ string      L?\"(\\.|[^\\"])*\"
 "~"             { return TK(T_BITNEG); }
 
 "let"           { return TK(LET); }
+"fun"           { return TK(FUN); }
 "False"         { return TK(FALSE); }
 "True"          { return TK(TRUE); }
 "record"        { return TK(RECORD); }
