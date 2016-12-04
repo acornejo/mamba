@@ -1,3 +1,4 @@
+- no strings
 - no arrays
 - no tuples
 - no structs

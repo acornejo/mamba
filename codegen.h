@@ -132,7 +132,7 @@ public:
             error("variable " + *v->val + " not found!");
 	}
 
-    virtual void visit(ast::VarDecl *v) {
+    virtual void visit(ast::VarDef *v) {
         v->expr->accept(this);
         assert(stack.size() >= 1);
         Expr *V = stack.top();
@@ -144,7 +144,7 @@ public:
         addvar(*(v->name), new Expr(V->type_name, V->type, alloca));
 	}
 
-    virtual void visit(ast::FuncDecl *v) {
+    virtual void visit(ast::FuncDef *v) {
         v->func->accept(this);
         assert(stack.size() >= 1);
         Expr *V = stack.top();

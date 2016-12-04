@@ -5,7 +5,7 @@
 #include "mamba_context.h"
 
 std::vector<char> paren;
-std::vector<int> indent;
+std::vector<size_t> indent;
 int pending_indents = 0, pending_dedents = 0;
 
 #define paren_add(c) paren.push_back(c)
@@ -99,6 +99,7 @@ string      L?\"(\\.|[^\\"])*\"
 
 "..."           { return TK(T_ELLIPSIS); }
 "->"            { return TK(T_ARROW); }
+":="            { return TK(T_DEFINE); }
 
 "<="            { return TK(T_LE); }
 ">="            { return TK(T_GE); }
@@ -113,10 +114,9 @@ string      L?\"(\\.|[^\\"])*\"
 "^"             { return TK(T_BITXOR); }
 "~"             { return TK(T_BITNEG); }
 
-"var"           { return TK(VAR); }
-"fun"           { return TK(FUN); }
 "False"         { return TK(FALSE); }
 "True"          { return TK(TRUE); }
+"fun"           { return TK(FUN); }
 "record"        { return TK(RECORD); }
 "union"         { return TK(UNION); }
 "or"            { return TK(OR); }

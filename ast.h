@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <stdint.h>
 
 namespace ast {
     typedef int64_t integer_t;
@@ -383,25 +384,23 @@ namespace ast {
             virtual void accept(Visitor *v);
     };
 
-    class VarDecl: public Node {
+    class VarDef: public Node {
         public:
             std::string *name;
             Node *expr;
             Node *type_spec;
-            VarDecl(std::string *_name, Node *_expr, Node *_type_spec): Node(), name(_name), expr(_expr), type_spec(_type_spec) {
+            VarDef(std::string *_name, Node *_expr): Node(), name(_name), expr(_expr) {
                 addString(name);
                 appendChild(expr);
-                if (type_spec)
-                    appendChild(type_spec);
             }
             virtual void accept(Visitor *v);
     };
 
-    class FuncDecl: public Node {
+    class FuncDef: public Node {
         public:
             std::string *name;
             Node *func;
-            FuncDecl(std::string *_name, Node *_func): Node(), name(_name), func(_func) {
+            FuncDef(std::string *_name, Node *_func): Node(), name(_name), func(_func) {
                 addString(name);
                 appendChild(func);
             }
@@ -456,7 +455,7 @@ namespace ast {
             virtual void visit(Real *) = 0;
             virtual void visit(String *) = 0;
             virtual void visit(Variable *) = 0;
-            virtual void visit(VarDecl *) = 0;
+            virtual void visit(VarDef *) = 0;
             virtual void visit(Assign *) = 0;
             virtual void visit(Unary *) = 0;
             virtual void visit(Binary *) = 0;
@@ -469,7 +468,7 @@ namespace ast {
             virtual void visit(Return *) = 0;
             virtual void visit(For *) = 0;
             virtual void visit(Function *) = 0;
-            virtual void visit(FuncDecl *) = 0;
+            virtual void visit(FuncDef *) = 0;
             virtual void visit(Call *) = 0;
             virtual void visit(Array *) = 0;
             virtual void visit(Subscript *) = 0;

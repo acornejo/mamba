@@ -20,6 +20,8 @@ parser.cc: mamba.y
 
 lexer.cc: mamba.l parser.cc
 	$(LEX) -d mamba.l
+	@# fix flex error to avoid warnings
+	sed -i -e's/int yyl;/size_t yyl;/g' lexer.cc
 
 .PHONY: clean
 

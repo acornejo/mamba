@@ -27,6 +27,14 @@
     ast::Type *type;
 }
 
+%token<string> IDENTIFIER STRING
+%token<real> REAL
+%token<integer> INTEGER
+%token<token> INDENT DEDENT NEWLINE
+%token<token> T_ARROW T_ELLIPSIS
+%token<token> FUN FALSE TRUE RECORD UNION IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
+%token<token> NOT T_BITNEG OR AND T_LT T_GT T_LE T_GE T_EQ T_NE T_BITOR T_BITAND T_BITXOR T_LSHIFT T_RSHIFT T_ADD T_SUB T_MUL T_DIV T_MOD T_POW T_DEFINE
+
 %nonassoc '('
 %nonassoc '['
 %left '.'
@@ -52,48 +60,38 @@
 %left T_MOD
 %left T_POW
 
-%token<string> IDENTIFIER STRING
-%token<real> REAL
-%token<integer> INTEGER
-%token<token> INDENT DEDENT NEWLINE
-%token<token> T_ARROW T_ELLIPSIS
-%token<token> VAR FUN FALSE TRUE RECORD UNION IF ELSE ELIF WHILE BREAK CONTINUE FOR IN RETURN
-
-%token<token> NOT T_BITNEG OR AND T_LT T_GT T_LE T_GE T_EQ T_NE T_BITOR T_BITAND T_BITXOR T_LSHIFT T_RSHIFT T_ADD T_SUB T_MUL T_DIV T_MOD T_POW
-
 /* Clean up memory in case of error */
 %destructor { delete $$; } <node>
 %destructor { delete $$; } IDENTIFIER
 %destructor { delete $$; } STRING
 
-
-%type<node> suite stmt_block simple_stmt small_stmt compound_stmt assn_stmt var_stmt func_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_suite record_stmt union_decl union_block union_suite union_stmt
+%type<node> block stmt_list simple_stmt small_stmt compound_stmt assn_stmt var_stmt break_stmt continue_stmt return_stmt while_stmt for_stmt if_stmt elif_stmt record_expr func_stmt record_stmt union_item union_params union_expr union_stmt
 %type<node> func_expr expr_list_ne expr_list expr
 %type<type> pointer_type array_type ref_type tuple_type func_type return_type type
-%type<tlist> record_block func_params type_list 
+%type<tlist> record_params func_params type_list
 
 %start program
 
 %%
 program:
-    stmt_block
+    stmt_list
     { context->setOutput($1); };
 
-suite:
-    NEWLINE INDENT stmt_block DEDENT
-    { $$ = $3; } ;
+block:
+    ':' NEWLINE INDENT stmt_list DEDENT
+    { $$ = $4; } ;
 
-stmt_block:
+stmt_list:
     compound_stmt
     { $$ = new ast::StmtList(); $$->appendChild($1); } |
 
     simple_stmt
     { $$ = new ast::StmtList(); $$->appendChild($1); } |
 
-    stmt_block simple_stmt
+    stmt_list simple_stmt
     { $$ = $1; $$->appendChild($2); } |
 
-    stmt_block compound_stmt
+    stmt_list compound_stmt
     { $$ = $1; $$->appendChild($2); } ;
 
 simple_stmt:
@@ -161,74 +159,42 @@ assn_stmt:
     { $$ = $3; ((ast::Assign*)$$)->vars.push_back($1); } ;
 
 var_stmt:
-    VAR IDENTIFIER '=' expr
-    { $$ = new ast::VarDecl($2, $4, NULL); } |
-
-    VAR type IDENTIFIER '=' expr
-    { $$ = new ast::VarDecl($3, $5, $2); } ;
+    IDENTIFIER T_DEFINE expr
+    { $$ = new ast::VarDef($1, $3); } ;
 
 func_stmt:
-    FUN IDENTIFIER '=' func_expr
-    { $$ = new ast::FuncDecl($2, $4); } ;
+    IDENTIFIER T_DEFINE func_expr
+    { $$ = new ast::FuncDef($1, $3); } ;
+
+record_stmt:
+    IDENTIFIER T_DEFINE record_expr
+    { $$ = new ast::RecordDef($1, $3); } ;
+
+union_stmt:
+    IDENTIFIER T_DEFINE union_expr
+    { $$ = new ast::UnionDef($1, $3); } ;
 
 if_stmt:
-    IF expr ':' suite elif_stmt
-    { $$ = new ast::IfElse($2, $4, $5); } ;
+    IF expr block elif_stmt
+    { $$ = new ast::IfElse($2, $3, $4); } ;
 
 elif_stmt:
     %empty
     { $$ = NULL; } |
 
-    ELIF expr ':' suite elif_stmt
-    { $$ = new ast::IfElse($2, $4, $5); } |
+    ELIF expr block elif_stmt
+    { $$ = new ast::IfElse($2, $3, $4); } |
 
-    ELSE ':' suite
-    { $$ = $3; } ;
+    ELSE block
+    { $$ = $2; } ;
 
 while_stmt:
-    WHILE expr ':' suite
-    { $$ = new ast::While($2, $4); } ;
+    WHILE expr block
+    { $$ = new ast::While($2, $3); } ;
 
 for_stmt:
-    FOR IDENTIFIER IN expr ':' suite
-    { $$ = new ast::For($2, $4, $6); } ;
-
-record_stmt:
-    RECORD IDENTIFIER ':' record_suite
-    { $$ = new ast::RecordDef($2, $4); } ;
-
-union_stmt:
-    UNION IDENTIFIER ':' union_suite
-    { $$ = new ast::UnionDef($2, $4); } ;
-
-record_suite:
-    NEWLINE INDENT record_block DEDENT
-    { $$ = $3; } ;
-
-record_block:
-    type IDENTIFIER NEWLINE
-    { $$ = new ast::TypeList(); $$->appendNamedChild($2, $1); } |
-
-    record_block type IDENTIFIER NEWLINE
-    { $$ = $1; $$->appendNamedChild($3, $2); } ;
-
-union_suite:
-    NEWLINE INDENT union_block DEDENT
-    { $$ = $3; } ;
-
-union_block:
-    union_decl NEWLINE
-    { $$ = new ast::UnionList(); $$->appendChild($1); } |
-
-    union_block union_decl NEWLINE
-    { $$ = $1; $1->appendChild($2); } ;
-
-union_decl:
-    IDENTIFIER
-    { $$ = new ast::UnionItem($1, NULL); } |
-
-    IDENTIFIER '(' type ')'
-    { $$ = new ast::UnionItem($1, $3); } ;
+    FOR IDENTIFIER IN expr block
+    { $$ = new ast::For($2, $4, $5); } ;
 
 pointer_type:
     '*' type
@@ -283,6 +249,35 @@ type:
     func_type
     { $$ = $1; } ;
 
+record_params:
+    IDENTIFIER type
+    { $$ = new ast::TypeList(); $$->appendNamedChild($1, $2); } |
+
+    record_params ',' IDENTIFIER type
+    { $$ = $1; $$->appendNamedChild($3, $4); } ;
+
+record_expr:
+    RECORD '(' record_params ')'
+    { $$ = $3; } ;
+
+union_item:
+    IDENTIFIER
+    { $$ = new ast::UnionItem($1, NULL); } |
+
+    IDENTIFIER '(' type ')'
+    { $$ = new ast::UnionItem($1, $3); } ;
+
+union_params:
+    union_item
+    { $$ = new ast::UnionList(); $$->appendChild($1); } |
+
+    union_params ',' union_item
+    { $$ = $1; $1->appendChild($3); } ;
+
+union_expr:
+    UNION '(' union_params ')'
+    { $$ = $3; } ;
+
 func_params:
     type IDENTIFIER
     { $$ = new ast::TypeList(); $$->appendNamedChild($2, $1); } |
@@ -291,11 +286,11 @@ func_params:
     { $$ = $1; $$->appendNamedChild($4, $3); } ;
 
 func_expr:
-    '(' ')' return_type ':' suite
-    { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $3), $5); } |
+    FUN '(' ')' return_type block
+    { $$ = new ast::Function(new ast::FuncType(new ast::TypeList(), $4), $5); } |
 
-    '(' func_params ')' return_type ':' suite
-    { $$ = new ast::Function(new ast::FuncType($2, $4), $6); } ;
+    FUN '(' func_params ')' return_type block
+    { $$ = new ast::Function(new ast::FuncType($3, $5), $6); } ;
 
 expr_list_ne:
     expr
@@ -310,7 +305,6 @@ expr_list:
 
     expr_list_ne
     { $$ = $1; } ;
-
 
 expr:
     NOT expr
