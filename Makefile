@@ -26,6 +26,6 @@ lexer.cc: mamba.l parser.cc
 .PHONY: clean
 
 clean:
-	rm -f $(EXEC) $(OBJS) $(DEPS) lexer.cc lexer.h parser.cc parser.h
+	rm -f $(EXEC) $(OBJS) $(DEPS) lexer.cc lexer.h parser.cc parser.h parser.output
 
 -include $(DEPS)

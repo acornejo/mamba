@@ -36,7 +36,7 @@ typedef std::map<std::string, Expr*> env_t;
 
 class Codegen: public ast::Visitor {
 private:
-    std::stack<Expr*> stack;
+    std::stack<unique_ptr<Expr>> expr_stack;
     std::vector<env_t> env;
     std::stack<BasicBlock*> continue_blocks;
     std::stack<BasicBlock*> break_blocks;
@@ -51,10 +51,10 @@ private:
 
 public:
     Codegen():
-        module(unique_ptr<Module>(new Module("jit", llvm::getGlobalContext()))),
-        engine(unique_ptr<ExecutionEngine>(ExecutionEngine::createJIT(module.get()))),
-        builder(unique_ptr<IRBuilder<>>(new IRBuilder<>(module->getContext()))),
-        pass_manager(unique_ptr<FunctionPassManager>(new FunctionPassManager(module.get()))) {
+        module(make_unique<Module>("jit", llvm::getGlobalContext())),
+        engine(ExecutionEngine::createJIT(module.get())),
+        builder(make_unique<IRBuilder<>>(module->getContext())),
+        pass_manager(make_unique<FunctionPassManager>(module.get())) {
 
         pass_manager->add(new llvm::DataLayoutPass(*engine->getDataLayout()));
         pass_manager->add(llvm::createBasicAliasAnalysisPass());
@@ -80,7 +80,7 @@ public:
         std::cout << msg << std::endl;
     }
 
-    Expr *getvar(std::string name) {
+    unique_ptr<Expr> getvar(std::string name) {
         for (auto it = env.rbegin(); it != env.rend(); ++it) {
             env_t &e = *it;
             auto eit = e.find(name);
@@ -90,7 +90,7 @@ public:
         return nullptr;
     }
 
-    void addvar(std::string name, Expr *val) {
+    void addvar(std::string name, unique_ptr<Expr> val) {
         env.back().insert(std::make_pair(name, val));
     }
 
@@ -103,67 +103,67 @@ public:
     }
 
     virtual void visit(ast::True *v) {
-        stack.push(new Expr("Bool", boolType, builder->getTrue()));
+        expr_stack.push(make_unique<Expr>("Bool", boolType, builder->getTrue()));
     }
 
     virtual void visit(ast::False *v) {
-        stack.push(new Expr("Bool", boolType, builder->getFalse()));
+        expr_stack.push(make_unique<Expr>("Bool", boolType, builder->getFalse()));
 	}
 
     virtual void visit(ast::Integer *v) {
-        stack.push(new Expr("Int", intType, builder->getInt32(v->val)));
+        expr_stack.push(make_unique<Expr>("Int", intType, builder->getInt32(v->val)));
 	}
 
     virtual void visit(ast::Real *v) {
-        stack.push(new Expr("Float", floatType, ConstantFP::get(builder->getContext(), v->val)));
+        expr_stack.push(make_unique<Expr>("Float", floatType, ConstantFP::get(builder->getContext(), v->val)));
 	}
 
     virtual void visit(ast::String *v) {
         Value *gs = builder->CreateGlobalString(v->val.c_str(), "globalstring");
-        stack.push(new Expr("String", builder->getInt8PtrTy(), builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
+        expr_stack.push(make_unique<Expr>("String", builder->getInt8PtrTy(), builder->CreateConstGEP2_32(gs, 0, 0, "cast")));
 	}
 
     virtual void visit(ast::Variable *v) {
-        Expr *L = getvar(*(v->val));
+        auto L = getvar(*(v->val));
         if (L != nullptr) {
             Value *val = builder->CreateLoad(L->value, *(v->val));
-            stack.push(new Expr(L->type_name, L->type, val));
+            expr_stack.push(make_unique<Expr>(L->type_name, L->type, val));
         } else
             error("variable " + *v->val + " not found!");
 	}
 
     virtual void visit(ast::VarDef *v) {
         v->expr->accept(this);
-        assert(stack.size() >= 1);
-        Expr *V = stack.top();
-        stack.pop();
+        assert(expr_stack.size() >= 1);
+        auto V = expr_stack.top();
+        expr_stack.pop();
 
         AllocaInst *alloca = builder->CreateAlloca(V->value->getType(), 0, v->name->c_str());
         builder->CreateStore(V->value, alloca);
 
-        addvar(*(v->name), new Expr(V->type_name, V->type, alloca));
+        addvar(*(v->name), make_unique<Expr>(V->type_name, V->type, alloca));
 	}
 
     virtual void visit(ast::FuncDef *v) {
         v->func->accept(this);
-        assert(stack.size() >= 1);
-        Expr *V = stack.top();
-        stack.pop();
+        assert(expr_stack.size() >= 1);
+        auto V = expr_stack.top();
+        expr_stack.pop();
 
         addfun(*(v->name), V);
     }
 
     virtual void visit(ast::Assign *v) {
         v->expr->accept(this);
-        assert(stack.size() >= 1);
-        Expr *R = stack.top();
-        stack.pop();
+        assert(expr_stack.size() >= 1);
+        auto R = expr_stack.top();
+        expr_stack.pop();
 
         for (auto &var : v->vars) {
             var->accept(this);
-            assert(stack.size() >= 1);
-            Expr *L = stack.top();
-            stack.pop();
+            assert(expr_stack.size() >= 1);
+            auto L = expr_stack.top();
+            expr_stack.pop();
 
             assert(L->type_name == R->type_name);
             builder->CreateStore(R->value, L->value);
@@ -172,105 +172,105 @@ public:
 
     virtual void visit(ast::Unary *v) {
         v->down->accept(this);
-        assert(stack.size() >= 1);
-        Expr *V = stack.top();
-        stack.pop();
+        assert(expr_stack.size() >= 1);
+        auto V = expr_stack.top();
+        expr_stack.pop();
 
         if (V->type_name == "Int" && method_name == "~") {
             Value *R = builder->CreateXOR(V->value, IntNot, "nottmp");
-            stack.push(new Expr(V->type_name, intType, R);
+            expr_stack.push(make_unique<Expr>(V->type_name, intType, R);
             return;
         }
 
         if (V->type_name == "Bool" && method_name == "not") {
             Value *R = builder->CreateNot(V->value, "nottmp");
-            stack.push(new Expr(V->type_name, boolType, R));
+            expr_stack.push(make_unique<Expr>(V->type_name, boolType, R));
             return;
         }
 
         error("unsuported operation " + v ->opname);
         // TODO: implement static method
         /*
-        Expr *result = applystaticmethod(V, v->opname, {V});
+        auto result = applystaticmethod(V, v->opname, {V});
         assert(result != nullptr);
-        stack.push(result);*/
+        expr_stack.push(result);*/
 	}
 
     virtual void visit(ast::Binary *v) {
         v->left->accept(this);
         v->right->accept(this);
-        assert(stack.size() >= 2);
+        assert(expr_stack.size() >= 2);
 
-        Expr *R = stack.top();
-        stack.pop();
-        Expr *L = stack.top();
-        stack.pop();
+        auto R = expr_stack.top();
+        expr_stack.pop();
+        auto L = expr_stack.top();
+        expr_stack.pop();
 
         // TODO: missing POW (**) operator
         if (R->type_name == "Int" && L->type_name == "Int") {
             if (v->opname == "+") {
                 Value *res = builder->CreateAdd(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "-")
                 Value *res = builder->CreateSub(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "*")
                 Value *res = builder->CreateMul(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "/")
                 Value *res = builder->CreateSDiv(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "%")
                 Value *res = builder->CreateRem(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "&")
                 Value *res = builder->CreateAnd(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "|")
                 Value *res = builder->CreateOr(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "^")
                 Value *res = builder->CreateXor(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "<<")
                 Value *res = builder->CreateShl(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == ">>")
                 Value *res = builder->CreateShr(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "<")
                 Value *res = builder->CreateICmpSLT(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "<=")
                 Value *res = builder->CreateICmpSLE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == ">")
                 Value *res = builder->CreateICmpSGT(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == ">=")
                 Value *res = builder->CreateICmpSGE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "==")
                 Value *res = builder->CreateICmpEQ(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "!=")
                 Value *res = builder->CreateICmpNE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             }
         }
@@ -278,47 +278,47 @@ public:
         if (R->type_name == "Float" && L->type_name == "Float") {
             if (v->opname == "+") {
                 Value *res = builder->CreateFAdd(L->value, R->value);
-                stack.push(new Expr(R->type_name, floatType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, floatType, res));
                 return;
             } else if (v->opname == "-") {
                 Value *res = builder->CreateFSub(L->value, R->value);
-                stack.push(new Expr(R->type_name, floatType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, floatType, res));
                 return;
             } else if (v->opname == "*") {
                 Value *res = builder->CreateFMul(L->value, R->value);
-                stack.push(new Expr(R->type_name, floatType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, floatType, res));
                 return;
             } else if (v->opname == "/") {
                 Value *res = builder->CreateFDiv(L->value, R->value);
-                stack.push(new Expr(R->type_name, floatType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, floatType, res));
                 return;
             } else if (v->opname == "%") {
                 Value *res = builder->CreateFRem(L->value, R->value);
-                stack.push(new Expr(R->type_name, floatType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, floatType, res));
                 return;
             } else if (v->opname == "<")
                 Value *res = builder->CreateFCmpOLT(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "<=")
                 Value *res = builder->CreateFCmpOLE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == ">")
                 Value *res = builder->CreateFCmpOGT(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == ">=")
                 Value *res = builder->CreateFCmpOGE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "==")
                 Value *res = builder->CreateFCmpOEQ(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             } else if (v->opname == "!=")
                 Value *res = builder->CreateFCmpONE(L->value, R->value);
-                stack.push(new Expr(R->type_name, intType, res));
+                expr_stack.push(make_unique<Expr>(R->type_name, intType, res));
                 return;
             }
         }
@@ -326,24 +326,24 @@ public:
         error("unsuported operation " + v ->opname);
         // TODO: implement apply static methods
         /*
-        Expr *result = applystaticmethod(R, v->opname, {R, L});
+        auto result = applystaticmethod(R, v->opname, {R, L});
         assert(result != nullptr);
-        stack.push(result);
+        expr_stack.push(result);
         */
 	}
 
     virtual void visit(ast::And *v) {
         v->left->accept(this);
         v->right->accept(this);
-        assert(stack.size() >= 2);
+        assert(expr_stack.size() >= 2);
 
-        Expr *L = stack.top();
+        auto L = expr_stack.top();
         assert(L->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
-        Expr *R = stack.top();
+        auto R = expr_stack.top();
         assert(R->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
         LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
@@ -361,21 +361,21 @@ public:
         PHINode *node = builder->CreatePHI(boolType, 2, "and_tmp");
         node->addIncoming(L->value, and_lhs);
         node->addIncoming(R->value, and_rhs);
-        stack.push(new Expr("Bool", boolType, node));
+        expr_stack.push(make_unique<Expr>("Bool", boolType, node));
 	}
 
     virtual void visit(ast::Or *v) {
         v->left->accept(this);
         v->right->accept(this);
-        assert(stack.size() >= 2);
+        assert(expr_stack.size() >= 2);
 
-        Expr *L = stack.top();
+        auto L = expr_stack.top();
         assert(L->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
-        Expr *R = stack.top();
+        auto R = expr_stack.top();
         assert(R->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
         LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
@@ -393,16 +393,16 @@ public:
         PHINode *node = builder->CreatePHI(boolType, 2, "or_tmp");
         node->addIncoming(L->value, or_lhs);
         node->addIncoming(R->value, or_rhs);
-        stack.push(new Expr("Bool", boolType, node));
+        expr_stack.push(make_unique<Expr>("Bool", boolType, node));
 	}
 
     virtual void visit(ast::IfElse *v) {
         v->expr->accept(this);
-        assert(stack.size() >= 1);
+        assert(expr_stack.size() >= 1);
 
-        Expr *cond = stack.top();
+        auto cond = expr_stack.top();
         assert(cond->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
         LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
@@ -442,11 +442,11 @@ public:
 
     virtual void visit(ast::While *v) {
         v->expr->accept(this);
-        assert(stack.size() >= 1);
+        assert(expr_stack.size() >= 1);
 
-        Expr *cond = stack.top();
+        auto cond = expr_stack.top();
         assert(cond->type_name == "Bool");
-        stack.pop();
+        expr_stack.pop();
 
         LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
@@ -478,11 +478,11 @@ public:
         }
 
         v->iterable->accept(this);
-        assert(stack.size() >= 1);
-        Expr *iterable = stack.top();
+        assert(expr_stack.size() >= 1);
+        auto iterable = expr_stack.top();
 
 #if 0
-        Expr *iter = applymethod(iterable, "iter");
+        auto iter = applymethod(iterable, "iter");
         assert(iter != nullptr);
         assert(hasmethod(iter, "hasNext"));
         assert(hasmethod(iter, "next"));
@@ -493,7 +493,7 @@ public:
         Str type_name = get_str_type_of_element_being_iterated;
         Type *type = get_llvm_type_of_element_being_iterated;
         AllocaInst *alloca = builder->CreateAlloca(type, 0, v->vname->c_str());
-        addvar(*(v->vname), new Expr(type_name, type, alloca));
+        addvar(*(v->vname), make_unique<Expr>(type_name, type, alloca));
 
         LLVMContext &ctx = builder->getContext();
         Function *func = builder->GetInsertBlock()->getParent();
@@ -505,14 +505,14 @@ public:
         break_blocks.push(for_end);
 
         builder->SetInsertPoint(for_start);
-        Expr *has_next = applymethod(iter, "hasNext");
+        auto has_next = applymethod(iter, "hasNext");
         assert(has_next != nullptr);
         assert(has_next->type_name == "Bool");
         builder->CreateCondBr(has_next->value, for_body, for_end);
 
         builder->SetInsertPoint(for_body);
         // TODO: fix this, next returns Maybe{T}, must unwrap
-        Expr *next = applymethod(iter, "next");
+        auto next = applymethod(iter, "next");
         assert(next != nullptr);
         builder->CreateStore(next->value, alloca);
         v->body->accept(this);
@@ -538,9 +538,9 @@ public:
     virtual void visit(ast::Return *v) {
         if (v->e) {
             v->e->accept(this);
-            assert(stack.size() >= 1);
-            Expr *V = stack.top();
-            stack.pop();
+            assert(expr_stack.size() >= 1);
+            auto V = expr_stack.top();
+            expr_stack.pop();
 
             // TODO: check that return type matches function signature
             builder->CreateRet(V->value);
@@ -578,21 +578,21 @@ public:
             ast::Type *targ = dynamic_cast<ast::Type*>(proto->params.childNodes[i]);
             AllocaInst *alloca = builder->CreateAlloca(arg.getType(), 0, arg.getName());
             builder->CreateStore(arg, alloca);
-            addvar(arg.getName(), new Expr(targ->type_name(), arg.getType(), alloca));
+            addvar(arg.getName(), make_unique<Expr>(targ->type_name(), arg.getType(), alloca));
             i++;
         }
         v->body->accept(this);
         // TODO: missing stmtlist, which shouldn't push anything..
         pop_scope()
 
-        stack.push(new Expr(proto->type_name, func_type, func));
+        expr_stack.push(make_unique<Expr>(proto->type_name, func_type, func));
 	}
 
     virtual void visit(ast::Call *v) {
         v->parent->accept(this);
-        assert(stack.size() >= 1);
-        Expr *callee_func = stack.top();
-        stack.pop();
+        assert(expr_stack.size() >= 1);
+        auto callee_func = expr_stack.top();
+        expr_stack.pop();
 
         FunctionType *func_type = dynamic_cast<FunctionType*>(callee_func->type);
         assert(func_type);
@@ -602,9 +602,9 @@ public:
         int i = 0;
         for (auto &param: v->params.childNodes) {
             param->accept(this);
-            assert(stack.size() >= 1);
-            Expr *V = stack.top();
-            stack.pop();
+            assert(expr_stack.size() >= 1);
+            auto V = expr_stack.top();
+            expr_stack.pop();
 
             assert(V->type == func_type->getParamType (i));
             arg_values.push_back(V->value);
@@ -613,13 +613,13 @@ public:
 
         std::string func_type_name = getreturntype(callee_func->type_name);
         Value *call = builder->CreateCall(callee_func->value, arg_values, "calltmp");
-        stack.push(new Expr(func_type_name, func_type->getReturnType(), call))
+        expr_stack.push(make_unique<Expr>(func_type_name, func_type->getReturnType(), call))
 	}
 
     virtual void visit(ast::Array *v) { }
     virtual void visit(ast::Subscript *v) { }
     virtual void visit(ast::Attribute *v) { }
-    virtual void visit(ast::Expr *v) { }
+    virtual void visit(ast::Expr*v) { }
     virtual void visit(ast::UnionItem *v) { }
     virtual void visit(ast::UnionList *v) { }
     virtual void visit(ast::RecordDef *v) { }
